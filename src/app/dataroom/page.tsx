@@ -12,7 +12,31 @@ import {
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
-import { Upload, UploadIcon } from 'lucide-react'
+import {
+  ArrowDown,
+  ChevronDown,
+  Folder,
+  FolderPen,
+  FolderPlus,
+  FolderX,
+  Upload,
+  UploadIcon,
+} from 'lucide-react'
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export default function DataroomPage() {
   return (
@@ -37,7 +61,34 @@ export default function DataroomPage() {
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>button.tsx</BreadcrumbPage>
+                  <BreadcrumbPage className="hover:bg-muted-foreground/30 px-3 py-2 rounded-md transition cursor-pointer">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <div className="flex gap-1 items-center">
+                          button.tsx <ChevronDown className="h-4 w-4" />
+                        </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56 mt-2" align="start">
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem>
+                            <FolderPlus className="h-4 w-4" /> New Folder
+                            <DropdownMenuShortcut>⇧⌘N</DropdownMenuShortcut>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <FolderPen className="h-4 w-4" /> Rename
+                            <DropdownMenuShortcut>⇧⌘R</DropdownMenuShortcut>
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem>
+                            <FolderX className="h-4 w-4" /> Delete
+                            <DropdownMenuShortcut>DEL</DropdownMenuShortcut>
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
