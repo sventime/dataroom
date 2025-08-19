@@ -1,5 +1,15 @@
+'use client'
+
 import * as React from 'react'
-import { ChevronRight, File, Folder } from 'lucide-react'
+import {
+  ChevronRight,
+  File,
+  Folder,
+  FolderOpen,
+  Upload,
+  Plus,
+  FolderPlus,
+} from 'lucide-react'
 
 import {
   Collapsible,
@@ -13,44 +23,64 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarRail,
 } from '@/components/ui/sidebar'
-
-// This is sample data.
-const data = {
-  tree: [
-    [
-      'app',
-      ['api', ['hello', ['route.ts']], 'page.tsx', 'layout.tsx', ['blog', ['page.tsx']]],
-    ],
-    ['components', ['ui', 'button.tsx', 'card.tsx'], 'header.tsx', 'footer.tsx'],
-    ['lib', ['util.ts']],
-    ['public', 'favicon.ico', 'vercel.svg'],
-    '.eslintrc.json',
-    '.gitignore',
-    'next.config.js',
-    'tailwind.config.js',
-    'package.json',
-    'README.md',
-  ],
-}
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FolderTree } from '@/components/dataroom/sidebar/FolderTree'
+import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
+import { useDataroomStore } from '@/store/dataroom-store'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { uploadFile, currentFolderId } = useDataroomStore()
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+
+    Array.from(files).forEach((file) => {
+      uploadFile(file, currentFolderId)
+    })
+
+    // Reset input
+    event.target.value = ''
+  }
+
   return (
     <Sidebar {...props}>
       <SidebarContent>
+        {/* Quick Actions */}
         <SidebarGroup>
-          <SidebarGroupLabel>Files</SidebarGroupLabel>
+          <SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {data.tree.map((item, index) => (
-                <Tree key={index} item={item} />
-              ))}
-            </SidebarMenu>
+            <div className="space-y-2 px-2">
+              <CreateFolderDialog />
+
+              <div className="relative">
+                <Input
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                />
+                <Button variant="outline" className="w-full justify-start" size="sm">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Files
+                </Button>
+              </div>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Folder Tree */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Data Room</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <DataroomTree />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
@@ -59,42 +89,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   )
 }
 
-function Tree({ item }: { item: string | any[] }) {
-  const [name, ...items] = Array.isArray(item) ? item : [item]
-
-  if (!items.length) {
-    return (
-      <SidebarMenuButton
-        isActive={name === 'button.tsx'}
-        className="data-[active=true]:bg-transparent"
-      >
-        <File />
-        {name}
-      </SidebarMenuButton>
-    )
-  }
-
-  return (
-    <SidebarMenuItem>
-      <Collapsible
-        className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
-        defaultOpen={name === 'components' || name === 'ui'}
-      >
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton>
-            <ChevronRight className="transition-transform" />
-            <Folder />
-            {name}
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {items.map((subItem, index) => (
-              <Tree key={index} item={subItem} />
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </Collapsible>
-    </SidebarMenuItem>
-  )
+function DataroomTree() {
+  return <FolderTree />
 }

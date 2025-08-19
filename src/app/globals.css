@@ -81,7 +81,6 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-
 }
 
 body {
@@ -169,4 +168,8 @@ h6 {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+[data-sidebar="menu-sub"]{
+  margin-right: 0 !important;
 }

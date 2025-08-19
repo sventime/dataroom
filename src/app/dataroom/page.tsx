@@ -1,6 +1,12 @@
+'use client'
+
 import SignOutButton from '@/components/auth/sign-out-button'
 import { Search } from '@/components/dataroom/search'
 import { AppSidebar } from '@/components/layout/app-sidebar'
+import { FileTable } from '@/components/dataroom/content/FileTable'
+import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
+import { RenameDialog } from '@/components/dataroom/dialogs/RenameDialog'
+import { DeleteConfirmDialog } from '@/components/dataroom/dialogs/DeleteConfirmDialog'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,35 +18,41 @@ import {
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
-import {
-  ArrowDown,
-  ChevronDown,
-  Folder,
-  FolderPen,
-  FolderPlus,
-  FolderX,
-  Upload,
-  UploadIcon,
-} from 'lucide-react'
+import { ChevronDown, FolderPen, FolderPlus, FolderX, Home } from 'lucide-react'
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
+import { useDataroomStore } from '@/store/dataroom-store'
+
 export default function DataroomPage() {
+  const { breadcrumbs, navigateToFolder, currentFolderId } = useDataroomStore()
+
+  const handleDeleteComplete = () => {
+    // Navigate to parent after deletion
+    if (breadcrumbs.length > 1) {
+      const parent = breadcrumbs[breadcrumbs.length - 2]
+      navigateToFolder(parent.id)
+    }
+  }
+
+  const currentFolder = breadcrumbs[breadcrumbs.length - 1]
+  const canModify = currentFolder?.id !== 'root'
+
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      style={{
+        '--sidebar-width': '20rem',
+        '--sidebar-width-mobile': '20rem',
+      }}
+    >
       <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 justify-between">
@@ -52,44 +64,87 @@ export default function DataroomPage() {
             />
             <Breadcrumb>
               <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="#">components</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="#">ui</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="hover:bg-muted-foreground/30 px-3 py-2 rounded-md transition cursor-pointer">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <div className="flex gap-1 items-center">
-                          button.tsx <ChevronDown className="h-4 w-4" />
-                        </div>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-56 mt-2" align="start">
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem>
-                            <FolderPlus className="h-4 w-4" /> New Folder
-                            <DropdownMenuShortcut>⇧⌘N</DropdownMenuShortcut>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <FolderPen className="h-4 w-4" /> Rename
-                            <DropdownMenuShortcut>⇧⌘R</DropdownMenuShortcut>
-                          </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem>
-                            <FolderX className="h-4 w-4" /> Delete
-                            <DropdownMenuShortcut>DEL</DropdownMenuShortcut>
-                          </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
+                {breadcrumbs.map((breadcrumb, index) => (
+                  <div key={breadcrumb.id} className="flex items-center">
+                    {index > 0 && <BreadcrumbSeparator className="hidden md:block" />}
+
+                    {index === breadcrumbs.length - 1 ? (
+                      <BreadcrumbItem>
+                        <BreadcrumbPage className="hover:bg-muted-foreground/30 px-3 py-2 rounded-md transition cursor-pointer">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <div className="flex gap-1 items-center">
+                                {index === 0 ? <Home className="h-4 w-4 mr-1" /> : null}
+                                {breadcrumb.name}
+                                <ChevronDown className="h-4 w-4" />
+                              </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56 mt-2" align="start">
+                              <DropdownMenuGroup>
+                                <CreateFolderDialog parentId={currentFolderId}>
+                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                    <FolderPlus className="h-4 w-4 mr-2" />
+                                    New Folder
+                                    <DropdownMenuShortcut>⇧⌘N</DropdownMenuShortcut>
+                                  </DropdownMenuItem>
+                                </CreateFolderDialog>
+                                {canModify && (
+                                  <RenameDialog
+                                    nodeId={currentFolder.id}
+                                    currentName={currentFolder.name}
+                                  >
+                                    <DropdownMenuItem
+                                      onSelect={(e) => e.preventDefault()}
+                                    >
+                                      <FolderPen className="h-4 w-4 mr-2" />
+                                      Rename
+                                      <DropdownMenuShortcut>⇧⌘R</DropdownMenuShortcut>
+                                    </DropdownMenuItem>
+                                  </RenameDialog>
+                                )}
+                              </DropdownMenuGroup>
+                              {canModify && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuGroup>
+                                    <DeleteConfirmDialog
+                                      nodeId={currentFolder.id}
+                                      nodeName={currentFolder.name}
+                                      onConfirm={handleDeleteComplete}
+                                    >
+                                      <DropdownMenuItem
+                                        onSelect={(e) => e.preventDefault()}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <FolderX className="h-4 w-4 mr-2" />
+                                        Delete
+                                        <DropdownMenuShortcut>DEL</DropdownMenuShortcut>
+                                      </DropdownMenuItem>
+                                    </DeleteConfirmDialog>
+                                  </DropdownMenuGroup>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </BreadcrumbPage>
+                      </BreadcrumbItem>
+                    ) : (
+                      <BreadcrumbItem className="hidden md:block">
+                        <BreadcrumbLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            navigateToFolder(breadcrumb.id)
+                          }}
+                          className="flex items-center"
+                        >
+                          {index === 0 && <Home className="h-4 w-4 mr-1" />}
+                          {breadcrumb.name}
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                    )}
+                  </div>
+                ))}
               </BreadcrumbList>
             </Breadcrumb>
           </div>
@@ -98,14 +153,9 @@ export default function DataroomPage() {
             <SignOutButton />
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            <div className="flex flex-col items-center jusitfy-center gap-3">
-              <UploadIcon />
-              Drop your files here, or click
-              <Button>Upload Files</Button>
-            </div>
-          </div>
+
+        <div className="flex-1 p-4 overflow-auto">
+          <FileTable />
         </div>
       </SidebarInset>
     </SidebarProvider>
