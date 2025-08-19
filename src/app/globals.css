@@ -45,8 +45,6 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  --color-muted: var(--color-gray-600);
-
   --font-sans: HarveySans, Arial, Helvetica, sans-serif;
   --font-serif: HarveySerif, Arial, Helvetica, sans-serif;
   --font-mono: var(--font-geist-mono);
@@ -69,6 +67,7 @@
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);

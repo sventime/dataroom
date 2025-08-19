@@ -1,4 +1,5 @@
 import SignOutButton from '@/components/auth/sign-out-button'
+import { Search } from '@/components/dataroom/search'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import {
   Breadcrumb,
@@ -8,8 +9,10 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { Upload, UploadIcon } from 'lucide-react'
 
 export default function DataroomPage() {
   return (
@@ -39,15 +42,19 @@ export default function DataroomPage() {
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          <SignOutButton />
+          <div className="flex items-center gap-4">
+            <Search />
+            <SignOutButton />
+          </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-            <div className="bg-muted/20 aspect-video rounded-xl" />
-            <div className="bg-muted/20 aspect-video rounded-xl" />
-            <div className="bg-muted/20 aspect-video rounded-xl" />
+          <div className="flex flex-1 flex-col items-center justify-center gap-4">
+            <div className="flex flex-col items-center jusitfy-center gap-3">
+              <UploadIcon />
+              Drop your files here, or click
+              <Button>Upload Files</Button>
+            </div>
           </div>
-          <div className="bg-muted/20 min-h-[100vh] flex-1 rounded-xl md:min-h-min" />
         </div>
       </SidebarInset>
     </SidebarProvider>
