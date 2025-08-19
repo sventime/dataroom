@@ -1,14 +1,7 @@
 import type { Metadata } from 'next'
-import { Geist_Mono } from 'next/font/google'
 import './globals.css'
-import { ThemeProvider } from '@/components/theme-provider'
-import Footer from '@/components/layout/Footer'
-import AuthSessionProvider from '@/components/providers/SessionProvider'
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+import { ThemeProvider } from '@/components/providers/theme-provider'
+import AuthSessionProvider from '@/components/providers/session-provider'
 
 export const metadata: Metadata = {
   title: 'Harvey: Data Room',
@@ -25,7 +18,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.png" sizes="any" />
       </head>
-      <body className={`${geistMono.variable} antialiased min-h-screen flex flex-col`}>
+      <body className="antialiased min-h-screen flex flex-col">
         <AuthSessionProvider>
           <ThemeProvider
             attribute="class"
@@ -33,8 +26,7 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <main className="flex-1 flex flex-col">{children}</main>
-            <Footer />
+            {children}
           </ThemeProvider>
         </AuthSessionProvider>
       </body>
