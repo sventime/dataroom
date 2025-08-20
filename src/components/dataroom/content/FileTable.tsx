@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   File,
   Folder,
@@ -11,6 +11,8 @@ import {
   Calendar,
   HardDrive,
   Upload,
+  ChevronDown,
+  ExternalLink,
 } from 'lucide-react'
 import {
   Table,
@@ -31,8 +33,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { useDataroomStore } from '@/store/dataroom-store'
 import type { DataroomNode } from '@/types/dataroom'
-import { RenameDialog } from '@/components/dataroom/dialogs/RenameDialog'
-import { DeleteConfirmDialog } from '@/components/dataroom/dialogs/DeleteConfirmDialog'
+import { useDialog } from '@/contexts/DialogContext'
 
 interface FileTableProps {
   className?: string
@@ -46,11 +47,22 @@ interface FileRowProps {
 
 function FileRow({ node, isSelected, onSelect }: FileRowProps) {
   const { navigateToFolder } = useDataroomStore()
+  const { openDialog } = useDialog()
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const handleDoubleClick = () => {
     if (node.type === 'folder') {
       navigateToFolder(node.id)
+    } else if (node.type === 'file') {
+      // Open file for preview in new tab
+      const previewUrl = `/api/files/${node.id}/preview`
+      window.open(previewUrl, '_blank')
     }
+  }
+
+  const handlePreview = () => {
+    const previewUrl = `/api/files/${node.id}/preview`
+    window.open(previewUrl, '_blank')
   }
 
   const formatFileSize = (bytes: number) => {
@@ -96,11 +108,7 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
         </div>
       </TableCell>
 
-      <TableCell className="text-muted-foreground">
-        {node.type === 'file' ? node.mimeType : 'Folder'}
-      </TableCell>
-
-      <TableCell className="text-muted-foreground">
+      <TableCell className="text-muted-foreground ">
         {node.type === 'file' ? formatFileSize(node.size) : '-'}
       </TableCell>
 
@@ -109,7 +117,7 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
       </TableCell>
 
       <TableCell className="w-12">
-        <DropdownMenu>
+        <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -123,6 +131,10 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
           <DropdownMenuContent align="end">
             {node.type === 'file' && (
               <>
+                <DropdownMenuItem onClick={handlePreview}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Preview
+                </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Download className="h-4 w-4 mr-2" />
                   Download
@@ -130,21 +142,21 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
                 <DropdownMenuSeparator />
               </>
             )}
-            <RenameDialog nodeId={node.id} currentName={node.name}>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <Edit className="h-4 w-4 mr-2" />
-                Rename
-              </DropdownMenuItem>
-            </RenameDialog>
-            <DeleteConfirmDialog nodeId={node.id} nodeName={node.name}>
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-2 text-destructive" />
-                Delete
-              </DropdownMenuItem>
-            </DeleteConfirmDialog>
+            <DropdownMenuItem onSelect={() => {
+              openDialog('rename', { nodeId: node.id, currentName: node.name })
+            }}>
+              <Edit className="h-4 w-4 mr-2" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                openDialog('delete', { nodeId: node.id, nodeName: node.name })
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+              Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
@@ -161,9 +173,17 @@ export function FileTable({ className }: FileTableProps) {
     selectMultiple,
     clearSelection,
   } = useDataroomStore()
+  const { openDialog } = useDialog()
 
   const nodes = getChildNodes(currentFolderId)
   const [allSelected, setAllSelected] = useState(false)
+
+  // Sync allSelected state with actual selection state
+  useEffect(() => {
+    const currentFolderNodeIds = nodes.map(node => node.id)
+    const selectedInCurrentFolder = selectedNodeIds.filter(id => currentFolderNodeIds.includes(id))
+    setAllSelected(nodes.length > 0 && selectedInCurrentFolder.length === nodes.length)
+  }, [selectedNodeIds, nodes])
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -199,31 +219,74 @@ export function FileTable({ className }: FileTableProps) {
   }
 
   return (
-    <div className={className}>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-12">
-              <Checkbox checked={allSelected} onCheckedChange={handleSelectAll} />
-            </TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Size</TableHead>
-            <TableHead>Modified</TableHead>
-            <TableHead className="w-12"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {nodes.map((node) => (
-            <FileRow
-              key={node.id}
-              node={node}
-              isSelected={selectedNodeIds.includes(node.id)}
-              onSelect={handleSelectNode}
-            />
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <>
+      <div className={className}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12">
+                <Checkbox checked={allSelected} onCheckedChange={handleSelectAll} />
+              </TableHead>
+
+              {selectedNodeIds.length > 0 ? (
+                <TableHead colSpan={5}>
+                  <div className="flex items-center justify-between">
+                    <span>Name</span>
+                    <div className="flex items-center justify-end animate-in px-2 fade-in-0 zoom-in-95 duration-300">
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium px-4">
+                          {selectedNodeIds.length}{' '}
+                          {selectedNodeIds.length === 1 ? 'item' : 'items'} selected
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            clearSelection()
+                            setAllSelected(false)
+                          }}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          Clear selection
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-0 text-destructive focus:text-destructive cursor-pointer hover:text-destructive "
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openDialog('bulkDelete', { nodeIds: selectedNodeIds })
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+                          Delete All ({selectedNodeIds.length})
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </TableHead>
+              ) : (
+                <>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Size</TableHead>
+                  <TableHead>Modified</TableHead>
+                  <TableHead></TableHead>
+                </>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {nodes.map((node) => (
+              <FileRow
+                key={node.id}
+                node={node}
+                isSelected={selectedNodeIds.includes(node.id)}
+                onSelect={handleSelectNode}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   )
 }

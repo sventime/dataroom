@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import AuthSessionProvider from '@/components/providers/session-provider'
+import { DialogProvider } from '@/contexts/DialogContext'
+import { DialogRenderer } from '@/components/dialogs/DialogRenderer'
 
 export const metadata: Metadata = {
   title: 'Harvey: Data Room',
@@ -14,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.png" sizes="any" />
       </head>
@@ -26,7 +28,10 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <DialogProvider>
+              {children}
+              <DialogRenderer />
+            </DialogProvider>
           </ThemeProvider>
         </AuthSessionProvider>
       </body>

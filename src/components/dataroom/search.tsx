@@ -66,7 +66,7 @@ export function Search() {
 
   return (
     <>
-      <p
+      <div
         className="text-muted-foreground text-sm bg-input/60 border-border border p-2 px-4 rounded-md flex gap-4 cursor-pointer hover:bg-input/80 transition-colors"
         onClick={() => setOpen(true)}
       >
@@ -79,7 +79,7 @@ export function Search() {
             K
           </kbd>
         </div>
-      </p>
+      </div>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
           placeholder="Type file or folder name to search..."

@@ -107,7 +107,7 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
               <SidebarMenuItem key={file.id}>
                 <SidebarMenuButton
                   onClick={() => handleFileClick(file.id)}
-                  className="pl-4 text-sm text-ellipsis cursor-pointer"
+                  className=" text-sm text-ellipsis cursor-pointer"
                 >
                   <File className="h-4 w-4 text-gray-500" />
                   <span>{file.name}</span>

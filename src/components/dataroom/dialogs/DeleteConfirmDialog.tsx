@@ -20,6 +20,8 @@ interface DeleteConfirmDialogProps {
   nodeId: string
   nodeName: string
   onConfirm?: () => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function DeleteConfirmDialog({
@@ -27,26 +29,46 @@ export function DeleteConfirmDialog({
   nodeId,
   nodeName,
   onConfirm,
+  open: controlledOpen,
+  onOpenChange,
 }: DeleteConfirmDialogProps) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen
   const { deleteNode } = useDataroomStore()
 
   const handleConfirm = () => {
     deleteNode(nodeId)
     onConfirm?.()
-    setOpen(false)
+    if (onOpenChange) {
+      onOpenChange(false)
+    } else {
+      setInternalOpen(false)
+    }
+  }
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(isOpen)
+    } else {
+      setInternalOpen(isOpen)
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children || (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {children && (
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+      )}
+      {!children && controlledOpen === undefined && (
+        <DialogTrigger asChild>
           <Button variant="destructive" size="sm">
             <Trash2 className="h-4 w-4 mr-2" />
             Delete
           </Button>
-        )}
-      </DialogTrigger>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Delete Item</DialogTitle>

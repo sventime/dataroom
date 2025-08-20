@@ -1,9 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, FolderPen, FolderPlus, FolderX, Home } from 'lucide-react'
+import {
+  ChevronDown,
+  FolderPen,
+  FolderPlus,
+  FolderX,
+  Home,
+  MoreHorizontal,
+} from 'lucide-react'
 import {
   Breadcrumb,
+  BreadcrumbEllipsis,
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,
@@ -19,9 +27,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
-import { RenameDialog } from '@/components/dataroom/dialogs/RenameDialog'
-import { DeleteConfirmDialog } from '@/components/dataroom/dialogs/DeleteConfirmDialog'
+import { useDialog } from '@/contexts/DialogContext'
 import { useDataroomStore } from '@/store/dataroom-store'
 
 interface BreadcrumbsProps {
@@ -31,9 +37,12 @@ interface BreadcrumbsProps {
 
 export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
   const { breadcrumbs, navigateToFolder, currentFolderId } = useDataroomStore()
+  const { openDialog } = useDialog()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [ellipsisDropdownOpen, setEllipsisDropdownOpen] = useState(false)
 
   const handleDeleteComplete = () => {
+    setDropdownOpen(false) // Close dropdown when delete completes
     if (onDeleteComplete) {
       onDeleteComplete()
     } else {
@@ -48,70 +57,127 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
   const currentFolder = breadcrumbs[breadcrumbs.length - 1]
   const canModify = currentFolder?.id !== 'root'
 
+  // Truncate folder names to max 20 characters
+  const truncateName = (name: string, maxLength = 25) => {
+    return name.length > maxLength ? `${name.substring(0, maxLength)}...` : name
+  }
+
+  // Show only 3 levels max: Root + ... + Last 2 folders
+  const getVisibleBreadcrumbs = () => {
+    if (breadcrumbs.length <= 4) {
+      return breadcrumbs
+    }
+
+    // Show: Root + ... + Last 2 folders
+    return [
+      breadcrumbs[0], // Root
+      { id: 'ellipsis', name: '...', path: '' }, // Ellipsis
+      breadcrumbs[breadcrumbs.length - 2], // Second to last
+      breadcrumbs[breadcrumbs.length - 1], // Last (current)
+    ]
+  }
+
+  // Get hidden breadcrumbs for ellipsis dropdown
+  const getHiddenBreadcrumbs = () => {
+    if (breadcrumbs.length <= 4) {
+      return []
+    }
+    // Return all breadcrumbs between first and last 2
+    return breadcrumbs.slice(1, breadcrumbs.length - 2)
+  }
+
+  const visibleBreadcrumbs = getVisibleBreadcrumbs()
+
   return (
     <Breadcrumb className={className}>
       <BreadcrumbList>
-        {breadcrumbs.map((breadcrumb, index) => (
+        {visibleBreadcrumbs.map((breadcrumb, index) => (
           <div key={breadcrumb.id} className="flex items-center">
             {index > 0 && <BreadcrumbSeparator className="hidden md:block" />}
 
-            {index === breadcrumbs.length - 1 ? (
+            {breadcrumb.id === 'ellipsis' ? (
               <BreadcrumbItem>
-                <BreadcrumbPage className="hover:bg-muted-foreground/30 px-3 py-2 rounded-md transition cursor-pointer">
+                <DropdownMenu
+                  open={ellipsisDropdownOpen}
+                  onOpenChange={setEllipsisDropdownOpen}
+                >
+                  <DropdownMenuTrigger className="flex items-center gap-1">
+                    <BreadcrumbEllipsis className="h-4 w-4" />
+                    <span className="sr-only">Show path</span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {getHiddenBreadcrumbs().map((hiddenBreadcrumb) => (
+                      <DropdownMenuItem
+                        key={hiddenBreadcrumb.id}
+                        className="cursor-pointer"
+                        onSelect={() => {
+                          navigateToFolder(hiddenBreadcrumb.id)
+                          setEllipsisDropdownOpen(false)
+                        }}
+                      >
+                        {truncateName(hiddenBreadcrumb.name)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </BreadcrumbItem>
+            ) : index === visibleBreadcrumbs.length - 1 ? (
+              <BreadcrumbItem>
+                <BreadcrumbPage className="hover:bg-muted-foreground/30 px-2 py-2 -ml-2 rounded-md transition cursor-pointer">
                   <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                     <DropdownMenuTrigger asChild>
                       <div className="flex gap-1 items-center">
                         {index === 0 ? <Home className="h-4 w-4 mr-1" /> : null}
-                        {breadcrumb.name}
+                        {truncateName(breadcrumb.name)}
                         <ChevronDown className="h-4 w-4" />
                       </div>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56 mt-2" align="end">
                       <DropdownMenuGroup>
-                        <CreateFolderDialog parentId={currentFolderId}>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onSelect={() => {
+                            openDialog('createFolder', { parentId: currentFolderId })
+                          }}
+                        >
+                          <FolderPlus className="h-4 w-4 mr-2" />
+                          New Folder
+                          <DropdownMenuShortcut>⌘/</DropdownMenuShortcut>
+                        </DropdownMenuItem>
+                        {canModify && (
                           <DropdownMenuItem
                             className="cursor-pointer"
-                            onSelect={(e) => e.preventDefault()}
+                            onSelect={() => {
+                              openDialog('rename', {
+                                nodeId: currentFolder.id,
+                                currentName: currentFolder.name,
+                              })
+                            }}
                           >
-                            <FolderPlus className="h-4 w-4 mr-2" />
-                            New Folder
-                            <DropdownMenuShortcut>⌘/</DropdownMenuShortcut>
+                            <FolderPen className="h-4 w-4 mr-2" />
+                            Rename
+                            <DropdownMenuShortcut>⇧⌘R</DropdownMenuShortcut>
                           </DropdownMenuItem>
-                        </CreateFolderDialog>
-                        {canModify && (
-                          <RenameDialog
-                            nodeId={currentFolder.id}
-                            currentName={currentFolder.name}
-                          >
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onSelect={(e) => e.preventDefault()}
-                            >
-                              <FolderPen className="h-4 w-4 mr-2" />
-                              Rename
-                              <DropdownMenuShortcut>⇧⌘R</DropdownMenuShortcut>
-                            </DropdownMenuItem>
-                          </RenameDialog>
                         )}
                       </DropdownMenuGroup>
                       {canModify && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuGroup>
-                            <DeleteConfirmDialog
-                              nodeId={currentFolder.id}
-                              nodeName={currentFolder.name}
-                              onConfirm={handleDeleteComplete}
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                openDialog('delete', {
+                                  nodeId: currentFolder.id,
+                                  nodeName: currentFolder.name,
+                                  onConfirm: handleDeleteComplete,
+                                })
+                              }}
+                              className="text-destructive focus:text-destructive cursor-pointer"
                             >
-                              <DropdownMenuItem
-                                onSelect={(e) => e.preventDefault()}
-                                className="text-destructive focus:text-destructive cursor-pointer"
-                              >
-                                <FolderX className="h-4 w-4 mr-2 text-destructive" />
-                                Delete
-                                <DropdownMenuShortcut>DEL</DropdownMenuShortcut>
-                              </DropdownMenuItem>
-                            </DeleteConfirmDialog>
+                              <FolderX className="h-4 w-4 mr-2 text-destructive" />
+                              Delete
+                              <DropdownMenuShortcut>DEL</DropdownMenuShortcut>
+                            </DropdownMenuItem>
                           </DropdownMenuGroup>
                         </>
                       )}
@@ -130,7 +196,7 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
                   className="flex items-center"
                 >
                   {index === 0 && <Home className="h-4 w-4 mr-1" />}
-                  {breadcrumb.name}
+                  {truncateName(breadcrumb.name)}
                 </BreadcrumbLink>
               </BreadcrumbItem>
             )}

@@ -21,10 +21,13 @@ interface RenameDialogProps {
   children?: React.ReactNode
   nodeId: string
   currentName: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function RenameDialog({ children, nodeId, currentName }: RenameDialogProps) {
-  const [open, setOpen] = useState(false)
+export function RenameDialog({ children, nodeId, currentName, open: controlledOpen, onOpenChange }: RenameDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen
   const [newName, setNewName] = useState('')
   const [error, setError] = useState('')
   const { renameNode, nodes } = useDataroomStore()
@@ -57,11 +60,19 @@ export function RenameDialog({ children, nodeId, currentName }: RenameDialogProp
     renameNode(nodeId, trimmedName)
     setNewName('')
     setError('')
-    setOpen(false)
+    if (onOpenChange) {
+      onOpenChange(false)
+    } else {
+      setInternalOpen(false)
+    }
   }
 
   const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
+    if (onOpenChange) {
+      onOpenChange(isOpen)
+    } else {
+      setInternalOpen(isOpen)
+    }
     if (isOpen) {
       setNewName(currentName)
       setError('')
@@ -76,16 +87,21 @@ export function RenameDialog({ children, nodeId, currentName }: RenameDialogProp
     if (error) setError('') // Clear error when user starts typing
   }
 
-  return (
+  const dialogContent = (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {children || (
+      {children && (
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+      )}
+      {!children && controlledOpen === undefined && (
+        <DialogTrigger asChild>
           <Button variant="outline" size="sm">
             <Edit className="h-4 w-4 mr-2" />
             Rename
           </Button>
-        )}
-      </DialogTrigger>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -126,4 +142,6 @@ export function RenameDialog({ children, nodeId, currentName }: RenameDialogProp
       </DialogContent>
     </Dialog>
   )
+
+  return dialogContent
 }

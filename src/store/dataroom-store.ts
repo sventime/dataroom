@@ -262,6 +262,61 @@ export const useDataroomStore = create<DataroomStore>()(
         set({ selectedNodeIds: [] })
       },
 
+      // Bulk operations
+      deleteBulk: (nodeIds: string[]) => {
+        const { nodes } = get()
+        const updatedNodes = { ...nodes }
+        const allNodesToDelete: string[] = []
+
+        // Recursively collect all descendant IDs for each selected node
+        const getNodesToDelete = (id: string): string[] => {
+          const currentNode = nodes[id]
+          if (!currentNode) return [id]
+          
+          if (currentNode.type === 'folder') {
+            return [id, ...currentNode.children.flatMap(getNodesToDelete)]
+          }
+          return [id]
+        }
+
+        // Collect all nodes to delete (including descendants)
+        nodeIds.forEach(nodeId => {
+          const nodesToDelete = getNodesToDelete(nodeId)
+          allNodesToDelete.push(...nodesToDelete)
+        })
+
+        // Remove all nodes
+        allNodesToDelete.forEach(id => {
+          delete updatedNodes[id]
+        })
+
+        // Update parent folders to remove deleted children
+        const parentsToUpdate = new Set<string>()
+        nodeIds.forEach(nodeId => {
+          const node = nodes[nodeId]
+          if (node?.parentId) {
+            parentsToUpdate.add(node.parentId)
+          }
+        })
+
+        parentsToUpdate.forEach(parentId => {
+          const parent = nodes[parentId] as Folder
+          if (parent) {
+            updatedNodes[parentId] = {
+              ...parent,
+              children: parent.children.filter(id => !allNodesToDelete.includes(id)),
+              updatedAt: new Date(),
+            }
+          }
+        })
+
+        set({
+          nodes: updatedNodes,
+          selectedNodeIds: [],
+          error: null,
+        })
+      },
+
       // Search
       setSearchQuery: (query: string) => {
         set({ searchQuery: query })

@@ -174,11 +174,9 @@ export default function DataroomPage() {
           {isDragOver && (
             <div className="absolute inset-0 flex items-center justify-center bg-accent/20 rounded-lg z-50 pointer-events-none animate-in fade-in-0 duration-200">
               <Card className="shadow-xl animate-in zoom-in-95 duration-200 bg-background">
-                <CardContent className="p-8 text-center">
+                <CardContent className="p-8 py-4 text-center">
                   <Upload className="h-10 w-10 mx-auto mb-4 text-primary" />
-                  <h2 className="font-semibold mb-1 !font-sans">
-                    Release To Upload Files
-                  </h2>
+                  <h2 className=" mb-1 !font-sans">Release To Upload Files</h2>
                   <p className="text-muted-foreground text-sm">
                     Files will be uploaded to the current folder
                   </p>
