@@ -1,14 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-import {
-  ChevronDown,
-  FolderPen,
-  FolderPlus,
-  FolderX,
-  Home,
-  MoreHorizontal,
-} from 'lucide-react'
 import {
   Breadcrumb,
   BreadcrumbEllipsis,
@@ -29,6 +20,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useDialog } from '@/contexts/DialogContext'
 import { useDataroomStore } from '@/store/dataroom-store'
+import { ChevronDown, Copy, FolderPen, FolderPlus, FolderX, Home } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 interface BreadcrumbsProps {
   className?: string
@@ -36,8 +30,9 @@ interface BreadcrumbsProps {
 }
 
 export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
-  const { breadcrumbs, navigateToFolder, currentFolderId } = useDataroomStore()
+  const { breadcrumbs, navigateToFolder, currentFolderId, dataroom } = useDataroomStore()
   const { openDialog } = useDialog()
+  const router = useRouter()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [ellipsisDropdownOpen, setEllipsisDropdownOpen] = useState(false)
 
@@ -46,7 +41,6 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
     if (onDeleteComplete) {
       onDeleteComplete()
     } else {
-      // Navigate to parent after deletion
       if (breadcrumbs.length > 1) {
         const parent = breadcrumbs[breadcrumbs.length - 2]
         navigateToFolder(parent.id)
@@ -57,32 +51,67 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
   const currentFolder = breadcrumbs[breadcrumbs.length - 1]
   const canModify = currentFolder?.id !== 'root'
 
-  // Truncate folder names to max 20 characters
+  const handleCopyShareLink = async () => {
+    if (!dataroom?.shareToken) return
+
+    const shareUrl = `${window.location.origin}/share/${dataroom.shareToken}`
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+    } catch (error) {
+      console.error('Failed to copy share link:', error)
+    }
+  }
+
+  const handleBreadcrumbClick = (breadcrumbId: string) => {
+    if (!dataroom) return
+
+    navigateToFolder(breadcrumbId)
+    const breadcrumbIndex = breadcrumbs.findIndex((b) => b.id === breadcrumbId)
+    if (breadcrumbIndex >= 0) {
+      const pathSegments = breadcrumbs
+        .slice(1, breadcrumbIndex + 1)
+        .map((crumb) => encodeURIComponent(crumb.name))
+
+      const basePath =
+        pathSegments.length > 0
+          ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
+          : `/dataroom/${dataroom.id}`
+
+      const { selectedNodeIds } = useDataroomStore.getState()
+      const searchParams = new URLSearchParams()
+      if (selectedNodeIds.length > 0) {
+        searchParams.set('selected', selectedNodeIds.join(','))
+      }
+
+      const newPath = searchParams.toString()
+        ? `${basePath}?${searchParams.toString()}`
+        : basePath
+
+      router.push(newPath)
+    }
+  }
+
   const truncateName = (name: string, maxLength = 25) => {
     return name.length > maxLength ? `${name.substring(0, maxLength)}...` : name
   }
 
-  // Show only 3 levels max: Root + ... + Last 2 folders
   const getVisibleBreadcrumbs = () => {
     if (breadcrumbs.length <= 4) {
       return breadcrumbs
     }
 
-    // Show: Root + ... + Last 2 folders
     return [
-      breadcrumbs[0], // Root
-      { id: 'ellipsis', name: '...', path: '' }, // Ellipsis
-      breadcrumbs[breadcrumbs.length - 2], // Second to last
-      breadcrumbs[breadcrumbs.length - 1], // Last (current)
+      breadcrumbs[0],
+      { id: 'ellipsis', name: '...', path: '' },
+      breadcrumbs[breadcrumbs.length - 2],
+      breadcrumbs[breadcrumbs.length - 1],
     ]
   }
 
-  // Get hidden breadcrumbs for ellipsis dropdown
   const getHiddenBreadcrumbs = () => {
     if (breadcrumbs.length <= 4) {
       return []
     }
-    // Return all breadcrumbs between first and last 2
     return breadcrumbs.slice(1, breadcrumbs.length - 2)
   }
 
@@ -111,7 +140,7 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
                         key={hiddenBreadcrumb.id}
                         className="cursor-pointer"
                         onSelect={() => {
-                          navigateToFolder(hiddenBreadcrumb.id)
+                          handleBreadcrumbClick(hiddenBreadcrumb.id)
                           setEllipsisDropdownOpen(false)
                         }}
                       >
@@ -160,6 +189,20 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuGroup>
+                      {dataroom?.shareToken && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onSelect={handleCopyShareLink}
+                            >
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy Share Link
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </>
+                      )}
                       {canModify && (
                         <>
                           <DropdownMenuSeparator />
@@ -191,7 +234,7 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
                   href="#"
                   onClick={(e) => {
                     e.preventDefault()
-                    navigateToFolder(breadcrumb.id)
+                    handleBreadcrumbClick(breadcrumb.id)
                   }}
                   className="flex items-center"
                 >

@@ -1,7 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-import { Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,8 +12,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useDataroomStore } from '@/store/dataroom-store'
+import { Edit, Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 interface RenameDialogProps {
   children?: React.ReactNode
@@ -25,28 +24,39 @@ interface RenameDialogProps {
   onOpenChange?: (open: boolean) => void
 }
 
-export function RenameDialog({ children, nodeId, currentName, open: controlledOpen, onOpenChange }: RenameDialogProps) {
+export function RenameDialog({
+  children,
+  nodeId,
+  currentName,
+  open: controlledOpen,
+  onOpenChange,
+}: RenameDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen
   const [newName, setNewName] = useState('')
   const [error, setError] = useState('')
-  const { renameNode, nodes } = useDataroomStore()
+  const { renameNode, nodes, operationLoading } = useDataroomStore()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (open && currentName) {
+      setNewName(currentName)
+      setError('')
+    }
+  }, [open, currentName])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const trimmedName = newName.trim()
     if (!trimmedName || trimmedName === currentName) return
 
-    // Find the node and its parent to check for duplicates
     const node = nodes[nodeId]
     if (!node) return
 
     const parent = nodes[node.parentId!]
     if (parent && parent.children) {
-      // Check if name already exists among siblings (excluding current node)
-      const nameExists = parent.children.some(childId => {
-        if (childId === nodeId) return false // Skip current node
+      const nameExists = parent.children.some((childId) => {
+        if (childId === nodeId) return false
         const child = nodes[childId]
         return child && child.name.toLowerCase() === trimmedName.toLowerCase()
       })
@@ -57,13 +67,17 @@ export function RenameDialog({ children, nodeId, currentName, open: controlledOp
       }
     }
 
-    renameNode(nodeId, trimmedName)
-    setNewName('')
-    setError('')
-    if (onOpenChange) {
-      onOpenChange(false)
-    } else {
-      setInternalOpen(false)
+    try {
+      await renameNode(nodeId, trimmedName)
+      setNewName('')
+      setError('')
+      if (onOpenChange) {
+        onOpenChange(false)
+      } else {
+        setInternalOpen(false)
+      }
+    } catch (error) {
+      console.error('Failed to rename node:', error)
     }
   }
 
@@ -84,20 +98,16 @@ export function RenameDialog({ children, nodeId, currentName, open: controlledOp
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewName(e.target.value)
-    if (error) setError('') // Clear error when user starts typing
+    if (error) setError('')
   }
 
   const dialogContent = (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {children && (
-        <DialogTrigger asChild>
-          {children}
-        </DialogTrigger>
-      )}
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       {!children && controlledOpen === undefined && (
         <DialogTrigger asChild>
           <Button variant="outline" size="sm">
-            <Edit className="h-4 w-4 mr-2" />
+            <Edit className="h-4 w-4" />
             Rename
           </Button>
         </DialogTrigger>
@@ -120,9 +130,7 @@ export function RenameDialog({ children, nodeId, currentName, open: controlledOp
                 autoFocus
                 className={error ? 'border-destructive' : ''}
               />
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
           </div>
           <DialogFooter>
@@ -133,8 +141,17 @@ export function RenameDialog({ children, nodeId, currentName, open: controlledOp
             </DialogClose>
             <Button
               type="submit"
-              disabled={!newName.trim() || newName.trim() === currentName}
+              disabled={
+                !newName.trim() ||
+                newName.trim() === currentName ||
+                operationLoading.renameNode === nodeId
+              }
             >
+              {operationLoading.renameNode === nodeId ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Edit className="h-4 w-4" />
+              )}
               Rename
             </Button>
           </DialogFooter>

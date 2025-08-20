@@ -1,38 +1,180 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { nanoid } from 'nanoid'
-import type { DataroomStore, DataroomNode, Folder, File, Breadcrumb } from '@/types/dataroom'
+import { DataroomApiClient, type ApiDataroom, type ApiDataroomNode } from '@/lib/api-client'
+import type { DataroomNode, Breadcrumb } from '@/types/dataroom'
 
-// Initial state factory
-const createInitialState = (rootFolderName = 'Data Room') => {
-  const rootFolderId = 'root'
-  const rootFolder: Folder = {
-    id: rootFolderId,
-    name: rootFolderName,
-    type: 'folder',
-    children: [],
-    parentId: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+interface DataroomState {
+  dataroom: ApiDataroom | null
+  nodes: Record<string, DataroomNode>
+  currentFolderId: string | null
+  breadcrumbs: Breadcrumb[]
+  selectedNodeIds: string[]
+  expandedFolders: Record<string, boolean> // Track which folders are expanded
+  isLoading: boolean
+  error: string | null
+  searchQuery: string
+  searchResults: string[]
+  operationLoading: {
+    createFolder: boolean
+    renameNode: string | null // nodeId being renamed
+    deleteNode: string | null // nodeId being deleted
+    bulkDelete: boolean
+    uploadFiles: boolean
   }
+}
 
-  return {
-    nodes: { [rootFolderId]: rootFolder },
-    rootFolderId,
-    currentFolderId: rootFolderId,
-    breadcrumbs: [{ id: rootFolderId, name: rootFolderName, path: '/' }],
-    selectedNodeIds: [],
-    isLoading: false,
-    error: null,
-    searchQuery: '',
-    searchResults: [],
+interface DataroomActions {
+  loadDataroom: () => Promise<void>
+  loadDataroomById: (dataroomId: string) => Promise<void>
+  processDataroomData: (dataroom: ApiDataroom) => void
+  
+  navigateToFolder: (folderId: string) => void
+  navigateToPath: (pathSegments: string[]) => void
+  
+  createFolder: (name: string, parentId?: string) => Promise<{ conflicts?: any[] }>
+  uploadFiles: (files: File[], parentId?: string) => Promise<{ conflicts?: any[] }>
+  renameNode: (nodeId: string, newName: string) => Promise<void>
+  deleteNode: (nodeId: string) => Promise<void>
+  deleteBulk: (nodeIds: string[]) => Promise<void>
+  
+  selectNode: (nodeId: string) => void
+  selectMultiple: (nodeIds: string[]) => void
+  clearSelection: () => void
+  
+  setSearchQuery: (query: string) => void
+  
+  toggleFolderExpansion: (folderId: string) => void
+  setFolderExpanded: (folderId: string, expanded: boolean) => void
+  isFolderExpanded: (folderId: string) => boolean
+  
+  getChildNodes: (parentId: string | null) => DataroomNode[]
+  getNodePath: (nodeId: string) => Breadcrumb[]
+  getFolderByPath: (pathSegments: string[]) => DataroomNode | null
+  reset: () => void
+}
+
+type DataroomStore = DataroomState & DataroomActions
+
+const convertApiNode = (apiNode: ApiDataroomNode): DataroomNode => ({
+  id: apiNode.id,
+  name: apiNode.name,
+  type: apiNode.type.toLowerCase() as 'folder' | 'file',
+  parentId: apiNode.parentId,
+  children: [],
+  size: apiNode.size || 0,
+  createdAt: new Date(apiNode.createdAt),
+  updatedAt: new Date(apiNode.updatedAt),
+  mimeType: apiNode.mimeType
+})
+
+const initialState: DataroomState = {
+  dataroom: null,
+  nodes: {},
+  currentFolderId: null,
+  breadcrumbs: [],
+  selectedNodeIds: [],
+  expandedFolders: { root: true },
+  isLoading: false,
+  error: null,
+  searchQuery: '',
+  searchResults: [],
+  operationLoading: {
+    createFolder: false,
+    renameNode: null,
+    deleteNode: null,
+    bulkDelete: false,
+    uploadFiles: false,
   }
 }
 
 export const useDataroomStore = create<DataroomStore>()(
   devtools(
     (set, get) => ({
-      ...createInitialState(),
+      ...initialState,
+
+      loadDataroom: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          const dataroom = await DataroomApiClient.getDataroom()
+          get().processDataroomData(dataroom)
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to load dataroom',
+            isLoading: false 
+          })
+        }
+      },
+
+      loadDataroomById: async (dataroomId: string) => {
+        set({ isLoading: true, error: null })
+        try {
+          const dataroom = await DataroomApiClient.getDataroomById(dataroomId)
+          get().processDataroomData(dataroom)
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to load dataroom',
+            isLoading: false 
+          })
+        }
+      },
+
+      // Helper method to process dataroom data
+      processDataroomData: (dataroom: ApiDataroom) => {
+        const { currentFolderId: existingCurrentFolderId } = get()
+        const nodes: Record<string, DataroomNode> = {}
+        
+        // Always add virtual root folder with user email
+        const rootFolderName = `Data Room${dataroom.user?.email ? ` (${dataroom.user.email})` : ''}`
+        nodes['root'] = {
+          id: 'root',
+          name: rootFolderName,
+          type: 'folder',
+          parentId: null,
+          children: [],
+          size: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+        
+        // Convert API nodes to internal format
+        dataroom.nodes.forEach(apiNode => {
+          const node = convertApiNode(apiNode)
+          // If this is a root-level node (parentId is null), make it a child of our virtual root
+          if (node.parentId === null) {
+            node.parentId = 'root'
+          }
+          nodes[apiNode.id] = node
+        })
+        
+        // Populate children arrays
+        Object.values(nodes).forEach(node => {
+          if (node.type === 'folder') {
+            node.children = Object.values(nodes)
+              .filter(child => child.parentId === node.id)
+              .map(child => child.id)
+          }
+        })
+
+        // Preserve current folder if it still exists, otherwise go to root
+        const currentFolderId = existingCurrentFolderId && nodes[existingCurrentFolderId] 
+          ? existingCurrentFolderId 
+          : 'root'
+        
+        // Set nodes first, then calculate breadcrumbs
+        set({
+          dataroom,
+          nodes,
+          currentFolderId,
+          isLoading: false
+        })
+        
+        // Calculate breadcrumbs after nodes are set
+        const breadcrumbs = currentFolderId === 'root' 
+          ? [{ id: 'root', name: nodes['root']?.name || 'Data Room', path: '/' }]
+          : get().getNodePath(currentFolderId)
+        
+        set({ breadcrumbs })
+      },
 
       // Navigation
       navigateToFolder: (folderId: string) => {
@@ -49,209 +191,142 @@ export const useDataroomStore = create<DataroomStore>()(
           currentFolderId: folderId,
           breadcrumbs,
           selectedNodeIds: [],
-          error: null,
+          error: null
         })
       },
 
-      goBack: () => {
-        const { breadcrumbs } = get()
-        if (breadcrumbs.length > 1) {
-          const parentBreadcrumb = breadcrumbs[breadcrumbs.length - 2]
-          get().navigateToFolder(parentBreadcrumb.id)
+      navigateToPath: (pathSegments: string[]) => {
+        const folder = get().getFolderByPath(pathSegments)
+        if (folder) {
+          get().navigateToFolder(folder.id)
+        } else {
+          // Path not found, navigate to root
+          get().navigateToFolder('root')
         }
       },
 
-      // Folder operations
-      createFolder: (name: string, parentId?: string) => {
-        const { nodes, currentFolderId } = get()
-        const actualParentId = parentId || currentFolderId
-        const parent = nodes[actualParentId]
+      // CRUD operations
+      createFolder: async (name: string, parentId?: string) => {
+        const { dataroom, currentFolderId } = get()
+        if (!dataroom) return
 
-        if (!parent || parent.type !== 'folder') {
-          set({ error: 'Invalid parent folder' })
-          return ''
-        }
-
-        const folderId = nanoid()
-        const now = new Date()
+        const targetParentId = parentId || currentFolderId
         
-        const newFolder: Folder = {
-          id: folderId,
-          name,
-          type: 'folder',
-          children: [],
-          parentId: actualParentId,
-          createdAt: now,
-          updatedAt: now,
+        try {
+          set({ 
+            operationLoading: { ...get().operationLoading, createFolder: true },
+            error: null 
+          })
+          const apiParentId = targetParentId === 'root' ? null : targetParentId
+          await DataroomApiClient.createFolder(name, apiParentId, dataroom.id)
+          await get().loadDataroomById(dataroom.id)
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to create folder'
+          })
+          throw error
+        } finally {
+          set({ 
+            operationLoading: { ...get().operationLoading, createFolder: false }
+          })
         }
-
-        const updatedParent: Folder = {
-          ...parent,
-          children: [...parent.children, folderId],
-          updatedAt: now,
-        }
-
-        set({
-          nodes: {
-            ...nodes,
-            [folderId]: newFolder,
-            [actualParentId]: updatedParent,
-          },
-          error: null,
-        })
-
-        return folderId
       },
 
-      renameNode: (nodeId: string, newName: string) => {
-        const { nodes } = get()
-        const node = nodes[nodeId]
+      uploadFiles: async (files: File[], parentId?: string) => {
+        const { dataroom, currentFolderId } = get()
+        if (!dataroom) return { conflicts: [] }
 
-        if (!node) {
-          return set({ error: 'Node not found' })
+        const targetParentId = parentId || currentFolderId
+        try {
+          set({ 
+            operationLoading: { ...get().operationLoading, uploadFiles: true },
+            error: null 
+          })
+          const apiParentId = targetParentId === 'root' ? null : targetParentId
+          const result = await DataroomApiClient.uploadFiles(files, apiParentId, dataroom.id)
+          await get().loadDataroomById(dataroom.id)
+          return { conflicts: result.conflicts }
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to upload files'
+          })
+          throw error
+        } finally {
+          set({ 
+            operationLoading: { ...get().operationLoading, uploadFiles: false }
+          })
         }
-
-        set({
-          nodes: {
-            ...nodes,
-            [nodeId]: {
-              ...node,
-              name: newName,
-              updatedAt: new Date(),
-            },
-          },
-          error: null,
-        })
       },
 
-      deleteNode: (nodeId: string) => {
-        const { nodes } = get()
-        const node = nodes[nodeId]
-
-        if (!node || !node.parentId) {
-          return set({ error: 'Cannot delete root or invalid node' })
+      renameNode: async (nodeId: string, newName: string) => {
+        try {
+          set({ 
+            operationLoading: { ...get().operationLoading, renameNode: nodeId },
+            error: null 
+          })
+          await DataroomApiClient.renameNode(nodeId, newName)
+          await get().loadDataroomById(get().dataroom!.id)
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to rename node'
+          })
+          throw error
+        } finally {
+          set({ 
+            operationLoading: { ...get().operationLoading, renameNode: null }
+          })
         }
-
-        const parent = nodes[node.parentId] as Folder
-        if (!parent) {
-          return set({ error: 'Parent folder not found' })
-        }
-
-        // Recursively collect all descendant IDs
-        const getNodesToDelete = (id: string): string[] => {
-          const currentNode = nodes[id]
-          if (!currentNode) return [id]
-          
-          if (currentNode.type === 'folder') {
-            return [id, ...currentNode.children.flatMap(getNodesToDelete)]
-          }
-          return [id]
-        }
-
-        const nodesToDelete = getNodesToDelete(nodeId)
-        const updatedNodes = { ...nodes }
-        
-        // Remove all descendant nodes
-        nodesToDelete.forEach(id => {
-          delete updatedNodes[id]
-        })
-
-        // Update parent's children array
-        const updatedParent: Folder = {
-          ...parent,
-          children: parent.children.filter(id => id !== nodeId),
-          updatedAt: new Date(),
-        }
-        updatedNodes[parent.id] = updatedParent
-
-        set({
-          nodes: updatedNodes,
-          selectedNodeIds: get().selectedNodeIds.filter(id => !nodesToDelete.includes(id)),
-          error: null,
-        })
       },
 
-      moveNode: (nodeId: string, newParentId: string) => {
-        const { nodes } = get()
-        const node = nodes[nodeId]
-        const newParent = nodes[newParentId]
-        const oldParent = node?.parentId ? nodes[node.parentId] : null
-
-        if (!node || !newParent || newParent.type !== 'folder' || !oldParent) {
-          return set({ error: 'Invalid move operation' })
+      deleteNode: async (nodeId: string) => {
+        try {
+          set({ 
+            operationLoading: { ...get().operationLoading, deleteNode: nodeId },
+            error: null 
+          })
+          await DataroomApiClient.deleteNode(nodeId)
+          await get().loadDataroomById(get().dataroom!.id)
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to delete node'
+          })
+          throw error
+        } finally {
+          set({ 
+            operationLoading: { ...get().operationLoading, deleteNode: null }
+          })
         }
-
-        const now = new Date()
-        const updatedOldParent = oldParent as Folder
-        const updatedNewParent = newParent as Folder
-
-        set({
-          nodes: {
-            ...nodes,
-            [nodeId]: { ...node, parentId: newParentId, updatedAt: now },
-            [oldParent.id]: {
-              ...updatedOldParent,
-              children: updatedOldParent.children.filter(id => id !== nodeId),
-              updatedAt: now,
-            },
-            [newParentId]: {
-              ...updatedNewParent,
-              children: [...updatedNewParent.children, nodeId],
-              updatedAt: now,
-            },
-          },
-          error: null,
-        })
       },
 
-      // File operations
-      uploadFile: (file: File, parentId?: string) => {
-        const { nodes, currentFolderId } = get()
-        const actualParentId = parentId || currentFolderId
-        const parent = nodes[actualParentId]
-
-        if (!parent || parent.type !== 'folder') {
-          set({ error: 'Invalid parent folder' })
-          return ''
+      deleteBulk: async (nodeIds: string[]) => {
+        try {
+          set({ 
+            operationLoading: { ...get().operationLoading, bulkDelete: true },
+            error: null 
+          })
+          await DataroomApiClient.bulkDelete(nodeIds)
+          set({ selectedNodeIds: [] })
+          await get().loadDataroomById(get().dataroom!.id)
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to delete nodes'
+          })
+          throw error
+        } finally {
+          set({ 
+            operationLoading: { ...get().operationLoading, bulkDelete: false }
+          })
         }
-
-        const fileId = nanoid()
-        const now = new Date()
-        
-        const newFile: File = {
-          id: fileId,
-          name: file.name,
-          type: 'file',
-          size: file.size,
-          mimeType: file.type,
-          parentId: actualParentId,
-          createdAt: now,
-          updatedAt: now,
-          // In a real app, you'd upload to storage and get a URL
-          content: '', // Placeholder for mock
-        }
-
-        const updatedParent: Folder = {
-          ...parent,
-          children: [...parent.children, fileId],
-          updatedAt: now,
-        }
-
-        set({
-          nodes: {
-            ...nodes,
-            [fileId]: newFile,
-            [actualParentId]: updatedParent,
-          },
-          error: null,
-        })
-
-        return fileId
       },
 
       // Selection
       selectNode: (nodeId: string) => {
-        set({ selectedNodeIds: [nodeId] })
+        const { selectedNodeIds } = get()
+        const newSelection = selectedNodeIds.includes(nodeId)
+          ? selectedNodeIds.filter(id => id !== nodeId)
+          : [...selectedNodeIds, nodeId]
+        
+        set({ selectedNodeIds: newSelection })
       },
 
       selectMultiple: (nodeIds: string[]) => {
@@ -262,124 +337,57 @@ export const useDataroomStore = create<DataroomStore>()(
         set({ selectedNodeIds: [] })
       },
 
-      // Bulk operations
-      deleteBulk: (nodeIds: string[]) => {
-        const { nodes } = get()
-        const updatedNodes = { ...nodes }
-        const allNodesToDelete: string[] = []
-
-        // Recursively collect all descendant IDs for each selected node
-        const getNodesToDelete = (id: string): string[] => {
-          const currentNode = nodes[id]
-          if (!currentNode) return [id]
-          
-          if (currentNode.type === 'folder') {
-            return [id, ...currentNode.children.flatMap(getNodesToDelete)]
-          }
-          return [id]
-        }
-
-        // Collect all nodes to delete (including descendants)
-        nodeIds.forEach(nodeId => {
-          const nodesToDelete = getNodesToDelete(nodeId)
-          allNodesToDelete.push(...nodesToDelete)
-        })
-
-        // Remove all nodes
-        allNodesToDelete.forEach(id => {
-          delete updatedNodes[id]
-        })
-
-        // Update parent folders to remove deleted children
-        const parentsToUpdate = new Set<string>()
-        nodeIds.forEach(nodeId => {
-          const node = nodes[nodeId]
-          if (node?.parentId) {
-            parentsToUpdate.add(node.parentId)
-          }
-        })
-
-        parentsToUpdate.forEach(parentId => {
-          const parent = nodes[parentId] as Folder
-          if (parent) {
-            updatedNodes[parentId] = {
-              ...parent,
-              children: parent.children.filter(id => !allNodesToDelete.includes(id)),
-              updatedAt: new Date(),
-            }
-          }
-        })
-
-        set({
-          nodes: updatedNodes,
-          selectedNodeIds: [],
-          error: null,
-        })
-      },
-
       // Search
       setSearchQuery: (query: string) => {
-        set({ searchQuery: query })
-        if (query.trim()) {
-          get().searchNodes(query)
-        } else {
-          set({ searchResults: [] })
-        }
-      },
-
-      searchNodes: (query: string) => {
         const { nodes } = get()
-        const searchTerm = query.toLowerCase().trim()
-        
-        if (!searchTerm) {
-          return set({ searchResults: [] })
+        if (!query.trim()) {
+          set({ searchQuery: '', searchResults: [] })
+          return
         }
 
         const results = Object.values(nodes)
           .filter(node => 
-            node.name.toLowerCase().includes(searchTerm) ||
-            (node.type === 'file' && node.mimeType.toLowerCase().includes(searchTerm))
+            node.name.toLowerCase().includes(query.toLowerCase())
           )
           .map(node => node.id)
 
-        set({ searchResults: results })
+        set({ searchQuery: query, searchResults: results })
       },
 
-      clearSearch: () => {
-        set({ searchQuery: '', searchResults: [] })
+      // Folder expansion
+      toggleFolderExpansion: (folderId: string) => {
+        const { expandedFolders } = get()
+        const isExpanded = expandedFolders[folderId] || false
+        set({
+          expandedFolders: {
+            ...expandedFolders,
+            [folderId]: !isExpanded
+          }
+        })
       },
 
-      // Utility functions
-      getNodePath: (nodeId: string): Breadcrumb[] => {
+      setFolderExpanded: (folderId: string, expanded: boolean) => {
+        const { expandedFolders } = get()
+        set({
+          expandedFolders: {
+            ...expandedFolders,
+            [folderId]: expanded
+          }
+        })
+      },
+
+      isFolderExpanded: (folderId: string) => {
+        const { expandedFolders } = get()
+        return expandedFolders[folderId] || false
+      },
+
+      // Utility
+      getChildNodes: (parentId: string | null) => {
         const { nodes } = get()
-        const path: Breadcrumb[] = []
-        let currentNode = nodes[nodeId]
-
-        while (currentNode) {
-          path.unshift({
-            id: currentNode.id,
-            name: currentNode.name,
-            path: `/dataroom${path.length > 0 ? `/${path.map(p => p.id).join('/')}` : ''}`,
-          })
-          
-          if (!currentNode.parentId) break
-          currentNode = nodes[currentNode.parentId]
-        }
-
-        return path
-      },
-
-      getChildNodes: (folderId: string): DataroomNode[] => {
-        const { nodes } = get()
-        const folder = nodes[folderId] as Folder
-        
-        if (!folder || folder.type !== 'folder') return []
-        
-        return folder.children
-          .map(childId => nodes[childId])
-          .filter(Boolean)
+        return Object.values(nodes)
+          .filter(node => node.parentId === parentId)
           .sort((a, b) => {
-            // Folders first, then files, then alphabetical
+            // Folders first, then files, both alphabetically
             if (a.type !== b.type) {
               return a.type === 'folder' ? -1 : 1
             }
@@ -387,17 +395,58 @@ export const useDataroomStore = create<DataroomStore>()(
           })
       },
 
-      // Initialize with custom root folder name
-      initializeWithUser: (rootFolderName?: string) => {
-        set(createInitialState(rootFolderName || 'Data Room'))
+      getNodePath: (nodeId: string): Breadcrumb[] => {
+        const { nodes } = get()
+        const path: Breadcrumb[] = []
+        let current = nodes[nodeId]
+
+        while (current) {
+          path.unshift({
+            id: current.id,
+            name: current.name,
+            path: '/' + path.map(p => p.name).join('/')
+          })
+
+          current = current.parentId ? nodes[current.parentId] : null
+        }
+
+        return path
+      },
+
+      getFolderByPath: (pathSegments: string[]): DataroomNode | null => {
+        const { nodes } = get()
+        
+        // Start from root
+        let currentFolder = nodes['root']
+        if (!currentFolder) return null
+
+        // If no path segments, return root
+        if (pathSegments.length === 0) {
+          return currentFolder
+        }
+
+        // Navigate through each path segment
+        for (const segment of pathSegments) {
+          const decodedSegment = decodeURIComponent(segment)
+          const children = get().getChildNodes(currentFolder.id)
+          const nextFolder = children.find(
+            child => child.type === 'folder' && child.name === decodedSegment
+          )
+          
+          if (!nextFolder) {
+            return null // Path segment not found
+          }
+          
+          currentFolder = nextFolder
+        }
+
+        return currentFolder
       },
 
       reset: () => {
-        set(createInitialState())
-      },
+        set(initialState)
+      }
     }),
-    {
-      name: 'dataroom-store',
-    }
+    { name: 'dataroom-store' }
   )
 )

@@ -1,50 +1,44 @@
 'use client'
 
-import { RenameDialog } from '@/components/dataroom/dialogs/RenameDialog'
-import { DeleteConfirmDialog } from '@/components/dataroom/dialogs/DeleteConfirmDialog'
-import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
 import { BulkDeleteConfirmDialog } from '@/components/dataroom/dialogs/BulkDeleteConfirmDialog'
+import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
+import { DeleteConfirmDialog } from '@/components/dataroom/dialogs/DeleteConfirmDialog'
+import { RenameDialog } from '@/components/dataroom/dialogs/RenameDialog'
 import { useDialog } from '@/contexts/DialogContext'
 
 export function DialogRenderer() {
   const { dialogState, closeDialog } = useDialog()
 
-  if (!dialogState.type || !dialogState.open) return null
+  return (
+    <>
+      <RenameDialog
+        nodeId={dialogState.type === 'rename' ? dialogState.props.nodeId : ''}
+        currentName={dialogState.type === 'rename' ? dialogState.props.currentName : ''}
+        {...(dialogState.type === 'rename' ? dialogState.props : {})}
+        open={dialogState.type === 'rename' && dialogState.open}
+        onOpenChange={closeDialog}
+      />
 
-  switch (dialogState.type) {
-    case 'rename':
-      return (
-        <RenameDialog
-          {...dialogState.props}
-          open={dialogState.open}
-          onOpenChange={closeDialog}
-        />
-      )
-    case 'delete':
-      return (
-        <DeleteConfirmDialog
-          {...dialogState.props}
-          open={dialogState.open}
-          onOpenChange={closeDialog}
-        />
-      )
-    case 'createFolder':
-      return (
-        <CreateFolderDialog
-          {...dialogState.props}
-          open={dialogState.open}
-          onOpenChange={closeDialog}
-        />
-      )
-    case 'bulkDelete':
-      return (
-        <BulkDeleteConfirmDialog
-          {...dialogState.props}
-          open={dialogState.open}
-          onOpenChange={closeDialog}
-        />
-      )
-    default:
-      return null
-  }
+      <DeleteConfirmDialog
+        nodeId={dialogState.type === 'delete' ? dialogState.props.nodeId : ''}
+        nodeName={dialogState.type === 'delete' ? dialogState.props.nodeName : ''}
+        {...(dialogState.type === 'delete' ? dialogState.props : {})}
+        open={dialogState.type === 'delete' && dialogState.open}
+        onOpenChange={closeDialog}
+      />
+
+      <CreateFolderDialog
+        {...(dialogState.type === 'createFolder' ? dialogState.props : {})}
+        open={dialogState.type === 'createFolder' && dialogState.open}
+        onOpenChange={closeDialog}
+      />
+
+      <BulkDeleteConfirmDialog
+        nodeIds={dialogState.type === 'bulkDelete' ? dialogState.props.nodeIds : []}
+        {...(dialogState.type === 'bulkDelete' ? dialogState.props : {})}
+        open={dialogState.type === 'bulkDelete' && dialogState.open}
+        onOpenChange={closeDialog}
+      />
+    </>
+  )
 }

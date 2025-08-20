@@ -1,7 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { FolderPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,9 +12,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useDataroomStore } from '@/store/dataroom-store'
-import { log } from 'console'
+import { FolderPlus, Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 interface CreateFolderDialogProps {
   children?: React.ReactNode
@@ -25,14 +23,19 @@ interface CreateFolderDialogProps {
   onOpenChange?: (open: boolean) => void
 }
 
-export function CreateFolderDialog({ children, parentId, open: controlledOpen, onOpenChange }: CreateFolderDialogProps) {
+export function CreateFolderDialog({
+  children,
+  parentId,
+  open: controlledOpen,
+  onOpenChange,
+}: CreateFolderDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen
   const [folderName, setFolderName] = useState('')
   const [error, setError] = useState('')
-  const { createFolder, currentFolderId, nodes } = useDataroomStore()
+  const { createFolder, currentFolderId, nodes, operationLoading } = useDataroomStore()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!folderName.trim()) return
@@ -54,13 +57,18 @@ export function CreateFolderDialog({ children, parentId, open: controlledOpen, o
       }
     }
 
-    createFolder(trimmedName, targetParentId)
-    setFolderName('')
-    setError('')
-    if (onOpenChange) {
-      onOpenChange(false)
-    } else {
-      setInternalOpen(false)
+    try {
+      await createFolder(trimmedName, targetParentId)
+      setFolderName('')
+      setError('')
+      if (onOpenChange) {
+        onOpenChange(false)
+      } else {
+        setInternalOpen(false)
+      }
+    } catch (error) {
+      // Error is already handled in the store, just don't close the dialog
+      console.error('Failed to create folder:', error)
     }
   }
 
@@ -99,11 +107,7 @@ export function CreateFolderDialog({ children, parentId, open: controlledOpen, o
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {children && (
-        <DialogTrigger asChild>
-          {children}
-        </DialogTrigger>
-      )}
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       {!children && controlledOpen === undefined && (
         <DialogTrigger asChild>
           <Button variant="outline" size="sm" className="w-full justify-start">
@@ -140,7 +144,15 @@ export function CreateFolderDialog({ children, parentId, open: controlledOpen, o
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={!folderName.trim()}>
+            <Button
+              type="submit"
+              disabled={!folderName.trim() || operationLoading.createFolder}
+            >
+              {operationLoading.createFolder ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FolderPlus className="h-4 w-4" />
+              )}
               Create Folder
             </Button>
           </DialogFooter>

@@ -42,6 +42,7 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
+  datarooms     Dataroom[]
 }
 
 model VerificationToken {
@@ -50,4 +51,43 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Dataroom {
+  id        String   @id @default(cuid())
+  name      String   @default("Data Room")
+  userId    String
+  shareToken String  @unique @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodes     DataroomNode[]
+}
+
+model DataroomNode {
+  id        String   @id @default(cuid())
+  name      String
+  type      NodeType
+  parentId  String?
+  dataroomId String
+  
+  // File-specific fields
+  filePath  String?  // Server file path
+  mimeType  String?
+  size      Int?     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  dataroom  Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
+  parent    DataroomNode? @relation("NodeHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  DataroomNode[] @relation("NodeHierarchy")
+  
+  @@index([dataroomId, parentId])
+}
+
+enum NodeType {
+  FOLDER
+  FILE
 }

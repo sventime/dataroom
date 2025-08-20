@@ -1,7 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,6 +11,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useDataroomStore } from '@/store/dataroom-store'
+import { AlertTriangle, Loader2, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 
 interface BulkDeleteConfirmDialogProps {
   open?: boolean
@@ -29,14 +29,19 @@ export function BulkDeleteConfirmDialog({
 }: BulkDeleteConfirmDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen
-  const { deleteBulk, nodes } = useDataroomStore()
+  const { deleteBulk, nodes, operationLoading } = useDataroomStore()
 
-  const handleConfirm = () => {
-    deleteBulk(nodeIds)
-    if (onOpenChange) {
-      onOpenChange(false)
-    } else {
-      setInternalOpen(false)
+  const handleConfirm = async () => {
+    try {
+      await deleteBulk(nodeIds)
+      if (onOpenChange) {
+        onOpenChange(false)
+      } else {
+        setInternalOpen(false)
+      }
+    } catch (error) {
+      // Error is already handled in the store, just don't close the dialog
+      console.error('Failed to delete nodes:', error)
     }
   }
 
@@ -73,11 +78,7 @@ export function BulkDeleteConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {children && (
-        <DialogTrigger asChild>
-          {children}
-        </DialogTrigger>
-      )}
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -85,12 +86,7 @@ export function BulkDeleteConfirmDialog({
             <DialogTitle>Delete Selected Items</DialogTitle>
           </div>
           <DialogDescription className="text-left">
-            Are you sure you want to delete {getItemDescription()}?
-            {folderCount > 0 && (
-              <span className="block mt-2 text-destructive font-medium">
-                Warning: Deleting folders will also delete all their contents.
-              </span>
-            )}
+            Are you sure you want to delete {getItemDescription()} with all content?
           </DialogDescription>
         </DialogHeader>
 
@@ -117,8 +113,17 @@ export function BulkDeleteConfirmDialog({
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={handleConfirm}>
-            Delete {nodeIds.length} Item{nodeIds.length > 1 ? 's' : ''}
+          <Button
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={operationLoading.bulkDelete}
+          >
+            {operationLoading.bulkDelete ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            {`Delete ${nodeIds.length} Item${nodeIds.length > 1 ? 's' : ''}`}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,43 +1,25 @@
 'use client'
 
+import { Upload } from 'lucide-react'
 import * as React from 'react'
-import {
-  ChevronRight,
-  File,
-  Folder,
-  FolderOpen,
-  Upload,
-  Plus,
-  FolderPlus,
-} from 'lucide-react'
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
+import { FolderTree } from '@/components/dataroom/sidebar/FolderTree'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { FolderTree } from '@/components/dataroom/sidebar/FolderTree'
-import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
 import { useDataroomStore } from '@/store/dataroom-store'
 import { useEffect, useRef } from 'react'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { uploadFile, currentFolderId, nodes, rootFolderId } = useDataroomStore()
-  const rootFolder = nodes[rootFolderId]
+  const { currentFolderId, nodes } = useDataroomStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,10 +27,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (!files) return
 
     const fileArray = Array.from(files)
-    
+
     // Emit custom event to notify parent components about file uploads
     const uploadEvent = new CustomEvent('fileUpload', {
-      detail: { files: fileArray, parentId: currentFolderId }
+      detail: { files: fileArray, parentId: currentFolderId },
     })
     window.dispatchEvent(uploadEvent)
 

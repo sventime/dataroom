@@ -1,8 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-import { signIn } from 'next-auth/react'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -14,6 +11,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import EmailIcon from '@/icons/email-icon'
+import { cn } from '@/lib/utils'
+import { signIn } from 'next-auth/react'
+import { useState } from 'react'
 
 export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
   const [email, setEmail] = useState('')

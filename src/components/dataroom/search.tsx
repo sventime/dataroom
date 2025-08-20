@@ -1,7 +1,7 @@
 'use client'
 
+import { File, FileText, Folder } from 'lucide-react'
 import * as React from 'react'
-import { File, Folder, FileText } from 'lucide-react'
 
 import {
   CommandDialog,
@@ -23,7 +23,6 @@ export function Search() {
     nodes,
     navigateToFolder,
     selectNode,
-    clearSearch,
   } = useDataroomStore()
 
   React.useEffect(() => {
@@ -57,7 +56,7 @@ export function Search() {
     }
 
     setOpen(false)
-    clearSearch()
+    setSearchQuery('')
   }
 
   const searchResultNodes = searchResults.map((id) => nodes[id]).filter(Boolean)
@@ -101,7 +100,7 @@ export function Search() {
                     <Folder className="h-4 w-4 " />
                     <span>{folder.name}</span>
                     <span className="text-xs text-muted-foreground ml-auto">
-                      {folder.parentId === 'root' ? 'Data Room' : 'Folder'}
+                      {folder.parentId === null ? 'Data Room' : 'Folder'}
                     </span>
                   </CommandItem>
                 ))}
@@ -119,16 +118,16 @@ export function Search() {
                     onSelect={() => handleSelectItem(file.id)}
                     className="flex items-center gap-2"
                   >
-                    {file.mimeType.includes('pdf') ? (
+                    {file.mimeType?.includes('pdf') ? (
                       <FileText className="h-4 w-4 text-red-500" />
-                    ) : file.mimeType.includes('image') ? (
+                    ) : file.mimeType?.includes('image') ? (
                       <File className="h-4 w-4 text-green-500" />
                     ) : (
                       <File className="h-4 w-4 text-gray-500" />
                     )}
                     <span>{file.name}</span>
                     <span className="text-xs text-muted-foreground ml-auto">
-                      {file.mimeType}
+                      {file.mimeType || 'Unknown'}
                     </span>
                   </CommandItem>
                 ))}

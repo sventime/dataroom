@@ -1,19 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
-  File,
-  Folder,
-  MoreHorizontal,
-  Download,
-  Trash2,
-  Edit,
-  Calendar,
-  HardDrive,
-  Upload,
-  ChevronDown,
-  ExternalLink,
-} from 'lucide-react'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -22,18 +17,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Checkbox } from '@/components/ui/checkbox'
+import { useDialog } from '@/contexts/DialogContext'
 import { useDataroomStore } from '@/store/dataroom-store'
 import type { DataroomNode } from '@/types/dataroom'
-import { useDialog } from '@/contexts/DialogContext'
+import {
+  Download,
+  Edit,
+  ExternalLink,
+  File,
+  Folder,
+  MoreHorizontal,
+  Trash2,
+  Upload,
+} from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 interface FileTableProps {
   className?: string
@@ -54,7 +52,6 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
     if (node.type === 'folder') {
       navigateToFolder(node.id)
     } else if (node.type === 'file') {
-      // Open file for preview in new tab
       const previewUrl = `/api/files/${node.id}/preview`
       window.open(previewUrl, '_blank')
     }
@@ -86,7 +83,7 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
 
   return (
     <TableRow
-      className="cursor-pointer hover:bg-accent/50"
+      className={`cursor-pointer hover:bg-accent/50 ${isSelected ? 'bg-accent/50' : ''}`}
       onDoubleClick={handleDoubleClick}
     >
       <TableCell className="w-12">
@@ -142,9 +139,11 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
                 <DropdownMenuSeparator />
               </>
             )}
-            <DropdownMenuItem onSelect={() => {
-              openDialog('rename', { nodeId: node.id, currentName: node.name })
-            }}>
+            <DropdownMenuItem
+              onSelect={() => {
+                openDialog('rename', { nodeId: node.id, currentName: node.name })
+              }}
+            >
               <Edit className="h-4 w-4 mr-2" />
               Rename
             </DropdownMenuItem>
@@ -172,26 +171,57 @@ export function FileTable({ className }: FileTableProps) {
     selectNode,
     selectMultiple,
     clearSelection,
+    dataroom,
+    breadcrumbs,
   } = useDataroomStore()
   const { openDialog } = useDialog()
+  const router = useRouter()
 
   const nodes = getChildNodes(currentFolderId)
   const [allSelected, setAllSelected] = useState(false)
 
-  // Sync allSelected state with actual selection state
+  const updateURLWithSelections = (newSelectedIds: string[]) => {
+    if (!dataroom) return
+
+    const pathSegments = breadcrumbs
+      .slice(1)
+      .map((crumb) => encodeURIComponent(crumb.name))
+
+    const basePath =
+      pathSegments.length > 0
+        ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
+        : `/dataroom/${dataroom.id}`
+
+    const searchParams = new URLSearchParams()
+    if (newSelectedIds.length > 0) {
+      searchParams.set('selected', newSelectedIds.join(','))
+    }
+
+    const newPath = searchParams.toString()
+      ? `${basePath}?${searchParams.toString()}`
+      : basePath
+
+    router.replace(newPath)
+  }
+
   useEffect(() => {
-    const currentFolderNodeIds = nodes.map(node => node.id)
-    const selectedInCurrentFolder = selectedNodeIds.filter(id => currentFolderNodeIds.includes(id))
+    const currentFolderNodeIds = nodes.map((node) => node.id)
+    const selectedInCurrentFolder = selectedNodeIds.filter((id) =>
+      currentFolderNodeIds.includes(id),
+    )
     setAllSelected(nodes.length > 0 && selectedInCurrentFolder.length === nodes.length)
   }, [selectedNodeIds, nodes])
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      selectMultiple(nodes.map((node) => node.id))
+      const newSelection = nodes.map((node) => node.id)
+      selectMultiple(newSelection)
       setAllSelected(true)
+      updateURLWithSelections(newSelection)
     } else {
       clearSelection()
       setAllSelected(false)
+      updateURLWithSelections([])
     }
   }
 
@@ -200,10 +230,12 @@ export function FileTable({ className }: FileTableProps) {
       const newSelection = [...selectedNodeIds, nodeId]
       selectMultiple(newSelection)
       setAllSelected(newSelection.length === nodes.length)
+      updateURLWithSelections(newSelection)
     } else {
       const newSelection = selectedNodeIds.filter((id) => id !== nodeId)
       selectMultiple(newSelection)
       setAllSelected(false)
+      updateURLWithSelections(newSelection)
     }
   }
 
@@ -223,7 +255,7 @@ export function FileTable({ className }: FileTableProps) {
       <div className={className}>
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="hover:bg-transparent">
               <TableHead className="w-12">
                 <Checkbox checked={allSelected} onCheckedChange={handleSelectAll} />
               </TableHead>
@@ -244,6 +276,7 @@ export function FileTable({ className }: FileTableProps) {
                           onClick={() => {
                             clearSelection()
                             setAllSelected(false)
+                            updateURLWithSelections([])
                           }}
                           className="text-muted-foreground hover:text-foreground"
                         >
@@ -258,7 +291,7 @@ export function FileTable({ className }: FileTableProps) {
                             openDialog('bulkDelete', { nodeIds: selectedNodeIds })
                           }}
                         >
-                          <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                           Delete All ({selectedNodeIds.length})
                         </Button>
                       </div>

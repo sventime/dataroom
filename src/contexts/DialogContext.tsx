@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useCallback, useContext, useState } from 'react'
 
 type DialogType = 'rename' | 'delete' | 'createFolder' | 'bulkDelete'
 
@@ -22,27 +22,27 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
   const [dialogState, setDialogState] = useState<DialogState>({
     type: null,
     props: {},
-    open: false
+    open: false,
   })
 
   const openDialog = useCallback((type: DialogType, props: any = {}) => {
     setDialogState({
       type,
       props,
-      open: true
+      open: true,
     })
   }, [])
 
   const closeDialog = useCallback(() => {
-    setDialogState(prev => ({
+    setDialogState((prev) => ({
       ...prev,
-      open: false
+      open: false,
     }))
     setTimeout(() => {
       setDialogState({
         type: null,
         props: {},
-        open: false
+        open: false,
       })
     }, 200)
   }, [])

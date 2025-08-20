@@ -1,7 +1,5 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,11 +11,18 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useDataroomStore } from '@/store/dataroom-store'
+import { Loader2, Upload } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface FileUploadConflictDialogProps {
   files: File[]
   parentId?: string
   onComplete: () => void
+  open?: boolean
+  onProgressUpdate?: (
+    progress: number,
+    status: 'preparing' | 'uploading' | 'complete' | 'error',
+  ) => void
 }
 
 interface FileConflict {
@@ -30,6 +35,8 @@ export function FileUploadConflictDialog({
   files,
   parentId,
   onComplete,
+  open: externalOpen = false,
+  onProgressUpdate,
 }: FileUploadConflictDialogProps) {
   const [open, setOpen] = useState(false)
   const [conflicts, setConflicts] = useState<FileConflict[]>([])
@@ -37,85 +44,201 @@ export function FileUploadConflictDialog({
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState('')
   const [skippedFiles, setSkippedFiles] = useState<Set<File>>(new Set())
-  const processedFilesRef = useRef<string[]>([])
-  const { uploadFile, nodes, currentFolderId } = useDataroomStore()
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState<
+    'preparing' | 'uploading' | 'complete' | 'error'
+  >('preparing')
+  const { uploadFiles, nodes, currentFolderId, operationLoading } = useDataroomStore()
+  const uploadExecutedRef = useRef<Set<string>>(new Set())
 
-  // Check for conflicts and set up dialog
+  // Only reset upload key when dialog closes AND files are cleared (true completion)
   useEffect(() => {
-    if (files.length === 0) return
-
-    // Create a unique key for this batch of files
-    const filesKey = files.map((f) => `${f.name}-${f.size}-${f.lastModified}`).join('|')
-
-    // Check if we've already processed these exact files
-    if (processedFilesRef.current.includes(filesKey)) return
-
-    processedFilesRef.current.push(filesKey)
-
-    // Reset skipped files for new batch
-    setSkippedFiles(new Set())
-
-    const targetParentId = parentId || currentFolderId
-    const parent = nodes[targetParentId]
-
-    if (!parent || parent.type !== 'folder') return
-
-    const fileConflicts: FileConflict[] = []
-
-    files.forEach((file) => {
-      // Check if file name already exists
-      const nameExists = parent.children?.some((childId) => {
-        const child = nodes[childId]
-        return child && child.name.toLowerCase() === file.name.toLowerCase()
-      })
-
-      if (nameExists) {
-        // Generate suggested name
-        const nameParts = file.name.split('.')
-        const extension = nameParts.length > 1 ? `.${nameParts.pop()}` : ''
-        const baseName = nameParts.join('.')
-        const suggestedName = `${baseName} (copy)${extension}`
-
-        fileConflicts.push({
-          file,
-          suggestedName,
-          finalName: suggestedName,
-        })
-      }
-    })
-
-    if (fileConflicts.length > 0) {
-      setConflicts(fileConflicts)
-      setCurrentIndex(0)
-      setFileName(fileConflicts[0].suggestedName)
-      setOpen(true)
-    } else {
-      // No conflicts, upload all files directly
-      files.forEach((file) => uploadFile(file, targetParentId))
-      onComplete()
+    if (!externalOpen && files.length === 0) {
+      uploadExecutedRef.current.clear()
     }
-  }, [files, parentId, currentFolderId, nodes, uploadFile, onComplete])
+  }, [externalOpen, files.length])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Create stable upload key using useMemo
+  const uploadKey = useMemo(() => {
+    if (files.length === 0) return ''
+    return `${files.length}-${files.map((f) => `${f.name}-${f.size}-${f.lastModified}`).join('|')}`
+  }, [files])
+
+  useEffect(() => {
+    if (!externalOpen || files.length === 0 || !uploadKey) return
+
+    // If we already processed this exact batch, skip
+    if (uploadExecutedRef.current.has(uploadKey)) {
+      return
+    }
+
+    uploadExecutedRef.current.add(uploadKey) // Mark this batch as being processed
+
+    const simulateProgress = (
+      startProgress: number,
+      endProgress: number,
+      duration: number,
+      status: 'preparing' | 'uploading' | 'complete' | 'error' = 'uploading',
+    ) => {
+      const steps = 20
+      const increment = (endProgress - startProgress) / steps
+      const stepDuration = duration / steps
+
+      let currentProgress = startProgress
+      const interval = setInterval(() => {
+        currentProgress += increment
+        const progress = Math.min(currentProgress, endProgress)
+        if (currentProgress >= endProgress) {
+          setUploadProgress(endProgress)
+          onProgressUpdate?.(endProgress, status)
+          clearInterval(interval)
+        } else {
+          setUploadProgress(progress)
+          onProgressUpdate?.(progress, status)
+        }
+      }, stepDuration)
+
+      return interval
+    }
+
+    const checkConflictsAndUpload = async () => {
+      try {
+        setIsUploading(true)
+        setUploadStatus('preparing')
+        setUploadProgress(0)
+        onProgressUpdate?.(0, 'preparing')
+
+        // Simulate preparation progress
+        const prepInterval = simulateProgress(0, 15, 500, 'preparing')
+        await new Promise((resolve) => setTimeout(resolve, 600))
+        clearInterval(prepInterval)
+
+        const targetParentId = parentId || currentFolderId
+
+        const existingFiles = Object.values(nodes)
+          .filter((node) => node.parentId === targetParentId && node.type === 'file')
+          .map((node) => node.name)
+
+        const conflictingFiles = files.filter((file) => existingFiles.includes(file.name))
+
+        // Conflict analysis completed
+
+        if (conflictingFiles.length > 0) {
+          const fileConflicts: FileConflict[] = conflictingFiles.map((file) => {
+            const nameParts = file.name.split('.')
+            const extension = nameParts.length > 1 ? `.${nameParts.pop()}` : ''
+            const baseName = nameParts.join('.')
+
+            // Find the next available number
+            let counter = 1
+            let suggestedName = `${baseName} (${counter})${extension}`
+
+            while (existingFiles.includes(suggestedName)) {
+              counter++
+              suggestedName = `${baseName} (${counter})${extension}`
+            }
+
+            return {
+              file,
+              suggestedName,
+              finalName: suggestedName,
+            }
+          })
+
+          setConflicts(fileConflicts)
+          setCurrentIndex(0)
+          setFileName(fileConflicts[0].suggestedName)
+          setOpen(true)
+
+          const nonConflictingFiles = files.filter(
+            (file) => !conflictingFiles.includes(file),
+          )
+          if (nonConflictingFiles.length > 0) {
+            setUploadStatus('uploading')
+            setUploadProgress(20)
+
+            // Simulate upload progress
+            const uploadInterval = simulateProgress(20, 95, 2000, 'uploading')
+
+            const apiParentId = targetParentId === 'root' ? null : targetParentId
+            await uploadFiles(nonConflictingFiles, apiParentId)
+
+            clearInterval(uploadInterval)
+            setUploadProgress(100)
+            onProgressUpdate?.(100, 'complete')
+          }
+
+          return
+        }
+
+        // No conflicts detected, upload all files
+        setUploadStatus('uploading')
+        setUploadProgress(20)
+
+        // Simulate upload progress for all files
+        const totalFiles = files.length
+        const progressPerFile = 75 / totalFiles // Leave 20% for prep, 5% for completion
+
+        const uploadInterval = simulateProgress(
+          20,
+          95,
+          Math.max(1000, totalFiles * 500),
+          'uploading',
+        )
+
+        const apiParentId = targetParentId === 'root' ? null : targetParentId
+        await uploadFiles(files, apiParentId)
+
+        clearInterval(uploadInterval)
+        setUploadProgress(100)
+        setUploadStatus('complete')
+        onProgressUpdate?.(100, 'complete')
+
+        // Show completion state briefly before closing
+        await new Promise((resolve) => setTimeout(resolve, 800))
+        onComplete()
+
+        // Keep upload key until component fully unmounts/files cleared to prevent re-upload
+        // Don't reset uploadExecutedRef here - let the parent component state change handle it
+      } catch (error) {
+        console.error('Upload error:', error)
+        setUploadStatus('error')
+        setError(error instanceof Error ? error.message : 'Upload failed')
+        onProgressUpdate?.(0, 'error')
+        setOpen(true)
+      } finally {
+        setIsUploading(false)
+      }
+    }
+
+    checkConflictsAndUpload()
+  }, [externalOpen, uploadKey])
+
+  // Component render tracking removed
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const trimmedName = fileName.trim()
     if (!trimmedName) return
 
     const targetParentId = parentId || currentFolderId
-    const parent = nodes[targetParentId]
 
-    // Check if the new name conflicts with existing files
-    if (parent?.children) {
-      const nameExists = parent.children.some((childId) => {
-        const child = nodes[childId]
-        return child && child.name.toLowerCase() === trimmedName.toLowerCase()
-      })
+    // Get existing files in the folder
+    const existingFiles = Object.values(nodes)
+      .filter((node) => node.parentId === targetParentId && node.type === 'file')
+      .map((node) => node.name)
 
-      if (nameExists) {
-        setError('A file with this name already exists.')
-        return
-      }
+    // Get already resolved conflict names
+    const resolvedNames = conflicts
+      .slice(0, currentIndex)
+      .map((conflict) => conflict.finalName)
+
+    // Check if name conflicts with existing files or already resolved names
+    if (existingFiles.includes(trimmedName) || resolvedNames.includes(trimmedName)) {
+      setError('A file with this name already exists or has been used')
+      return
     }
 
     // Update the conflict with the final name
@@ -130,38 +253,35 @@ export function FileUploadConflictDialog({
       setError('')
       setConflicts(updatedConflicts)
     } else {
-      // All conflicts resolved, upload files
       setOpen(false)
-      uploadAllFiles(updatedConflicts)
+      await uploadResolvedConflicts(updatedConflicts)
     }
   }
 
-  const uploadAllFiles = (resolvedConflicts: FileConflict[]) => {
-    const targetParentId = parentId || currentFolderId
+  const uploadResolvedConflicts = async (resolvedConflicts: FileConflict[]) => {
+    try {
+      const targetParentId = parentId || currentFolderId
 
-    // Upload non-conflicting files with original names (excluding skipped files)
-    files.forEach((file) => {
-      // Skip if this file is marked as skipped
-      if (skippedFiles.has(file)) return
+      const filesToUpload = resolvedConflicts
+        .filter((conflict) => !skippedFiles.has(conflict.file))
+        .map(
+          (conflict) =>
+            new File([conflict.file], conflict.finalName, {
+              type: conflict.file.type,
+              lastModified: conflict.file.lastModified,
+            }),
+        )
 
-      const conflict = resolvedConflicts.find((c) => c.file === file)
-      if (!conflict) {
-        uploadFile(file, targetParentId)
+      if (filesToUpload.length > 0) {
+        const apiParentId = targetParentId === 'root' ? null : targetParentId
+        await uploadFiles(filesToUpload, apiParentId)
       }
-    })
-
-    // Upload conflicting files with resolved names (excluding skipped files)
-    resolvedConflicts.forEach((conflict) => {
-      // Skip if this file is marked as skipped
-      if (skippedFiles.has(conflict.file)) return
-
-      // Create a new file with the resolved name
-      const renamedFile = new File([conflict.file], conflict.finalName, {
-        type: conflict.file.type,
-        lastModified: conflict.file.lastModified,
-      })
-      uploadFile(renamedFile, targetParentId)
-    })
+    } catch (error) {
+      console.error('Error uploading resolved conflicts:', error)
+      setError(error instanceof Error ? error.message : 'Upload failed')
+      setOpen(true)
+      return
+    }
 
     onComplete()
   }
@@ -171,31 +291,36 @@ export function FileUploadConflictDialog({
     if (error) setError('')
   }
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     const currentFile = conflicts[currentIndex].file
 
     // Mark current file as skipped
     setSkippedFiles((prev) => new Set(prev.add(currentFile)))
 
     if (currentIndex < conflicts.length - 1) {
-      // Move to next conflict
       setCurrentIndex(currentIndex + 1)
       setFileName(conflicts[currentIndex + 1].suggestedName)
       setError('')
     } else {
-      // No more conflicts, upload remaining files
       setOpen(false)
-      uploadAllFiles(conflicts)
+      await uploadResolvedConflicts(conflicts)
     }
   }
 
   const handleCancel = () => {
-    // Cancel all uploads - close dialog and call onComplete without uploading anything
     setOpen(false)
     onComplete()
   }
 
-  if (!open || conflicts.length === 0) return null
+  // No longer show progress overlay - use main page drag card instead
+
+  if (!open || conflicts.length === 0) {
+    return (
+      <Dialog open={false} onOpenChange={() => {}}>
+        <DialogContent />
+      </Dialog>
+    )
+  }
 
   const currentConflict = conflicts[currentIndex]
 
@@ -228,9 +353,20 @@ export function FileUploadConflictDialog({
             <Button variant="outline" type="button" onClick={handleSkip}>
               Skip This File
             </Button>
-            <Button type="submit" disabled={!fileName.trim()}>
-              <Upload className="h-4 w-4 mr-0" />
-              {currentIndex < conflicts.length - 1 ? 'Next' : 'Upload'}
+            <Button
+              type="submit"
+              disabled={!fileName.trim() || operationLoading.uploadFiles}
+            >
+              {operationLoading.uploadFiles ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4 mr-2" />
+              )}
+              {operationLoading.uploadFiles
+                ? 'Uploading...'
+                : currentIndex < conflicts.length - 1
+                  ? 'Next'
+                  : 'Upload'}
             </Button>
           </DialogFooter>
         </form>

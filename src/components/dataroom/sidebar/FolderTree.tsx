@@ -1,7 +1,7 @@
 'use client'
 
-import * as React from 'react'
 import { ChevronRight, File, Folder, FolderOpen } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 import {
   Collapsible,
@@ -15,14 +15,26 @@ import {
   SidebarMenuSub,
 } from '@/components/ui/sidebar'
 import { useDataroomStore } from '@/store/dataroom-store'
-import type { Folder as FolderType } from '@/types/dataroom'
 
 interface FolderTreeProps {
   className?: string
 }
 
 export function FolderTree({ className }: FolderTreeProps) {
-  const { rootFolderId } = useDataroomStore()
+  const { nodes } = useDataroomStore()
+
+  const rootFolder = Object.values(nodes).find(
+    (node) => node.parentId === null && node.type === 'folder',
+  )
+  const rootFolderId = rootFolder?.id
+
+  if (!rootFolderId) {
+    return (
+      <div className={className}>
+        <div className="px-2 py-4 text-sm text-muted-foreground">No folders found</div>
+      </div>
+    )
+  }
 
   return (
     <div className={className}>
@@ -34,11 +46,22 @@ export function FolderTree({ className }: FolderTreeProps) {
 }
 
 function FolderTreeNode({ folderId }: { folderId: string }) {
-  const { nodes, currentFolderId, navigateToFolder, getChildNodes, selectNode } =
-    useDataroomStore()
-  const [isOpen, setIsOpen] = React.useState(folderId === 'root')
+  const {
+    nodes,
+    currentFolderId,
+    navigateToFolder,
+    getChildNodes,
+    selectNode,
+    dataroom,
+    getNodePath,
+    isFolderExpanded,
+    toggleFolderExpansion,
+  } = useDataroomStore()
+  const router = useRouter()
 
-  const folder = nodes[folderId] as FolderType
+  const isOpen = isFolderExpanded(folderId)
+
+  const folder = nodes[folderId]
   const isActive = currentFolderId === folderId
   const allChildNodes = getChildNodes(folderId)
   const childFolders = allChildNodes.filter((node) => node.type === 'folder')
@@ -50,38 +73,82 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
   }
 
   const handleNavigate = () => {
+    if (!dataroom) return
+
     navigateToFolder(folderId)
-    if (hasChildren && !isOpen) {
-      setIsOpen(true)
+
+    if (!isOpen) {
+      toggleFolderExpansion(folderId)
     }
+    const breadcrumbs = getNodePath(folderId)
+    const pathSegments = breadcrumbs
+      .slice(1)
+      .map((crumb) => encodeURIComponent(crumb.name))
+
+    const basePath =
+      pathSegments.length > 0
+        ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
+        : `/dataroom/${dataroom.id}`
+
+    const { selectedNodeIds } = useDataroomStore.getState()
+    const searchParams = new URLSearchParams()
+    if (selectedNodeIds.length > 0) {
+      searchParams.set('selected', selectedNodeIds.join(','))
+    }
+
+    const newPath = searchParams.toString()
+      ? `${basePath}?${searchParams.toString()}`
+      : basePath
+
+    router.push(newPath)
   }
 
   const handleFileClick = (fileId: string) => {
-    // Navigate to the folder containing the file and select it
-    navigateToFolder(folderId)
-    selectNode(fileId)
-  }
+    if (!dataroom) return
 
-  if (!hasChildren) {
-    return (
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          isActive={isActive}
-          onClick={handleNavigate}
-          className="data-[active=true]:bg-accent"
-        >
-          <Folder className="h-4 w-4" />
-          {folder.name}
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    )
+    const store = useDataroomStore.getState()
+    const {
+      selectedNodeIds,
+      selectMultiple,
+      navigateToFolder: storeNavigateToFolder,
+    } = store
+
+    const newSelection = [fileId]
+
+    storeNavigateToFolder(folderId)
+    selectMultiple(newSelection)
+
+    if (!isOpen) {
+      toggleFolderExpansion(folderId)
+    }
+
+    const targetBreadcrumbs = getNodePath(folderId)
+    const pathSegments = targetBreadcrumbs
+      .slice(1)
+      .map((crumb) => encodeURIComponent(crumb.name))
+
+    const basePath =
+      pathSegments.length > 0
+        ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
+        : `/dataroom/${dataroom.id}`
+
+    const searchParams = new URLSearchParams()
+    if (newSelection.length > 0) {
+      searchParams.set('selected', newSelection.join(','))
+    }
+
+    const newPath = searchParams.toString()
+      ? `${basePath}?${searchParams.toString()}`
+      : basePath
+
+    router.push(newPath)
   }
 
   return (
     <SidebarMenuItem>
       <Collapsible
         open={isOpen}
-        onOpenChange={setIsOpen}
+        onOpenChange={() => toggleFolderExpansion(folderId)}
         className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
       >
         <SidebarMenuButton
@@ -114,6 +181,14 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
+
+            {!hasChildren && (
+              <SidebarMenuItem>
+                <div className="px-2 py-2 text-sm text-muted-foreground/50">
+                  Empty folder
+                </div>
+              </SidebarMenuItem>
+            )}
           </SidebarMenuSub>
         </CollapsibleContent>
       </Collapsible>

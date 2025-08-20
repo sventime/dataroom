@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -34,15 +34,20 @@ export function DeleteConfirmDialog({
 }: DeleteConfirmDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen
-  const { deleteNode } = useDataroomStore()
+  const { deleteNode, operationLoading } = useDataroomStore()
 
-  const handleConfirm = () => {
-    deleteNode(nodeId)
-    onConfirm?.()
-    if (onOpenChange) {
-      onOpenChange(false)
-    } else {
-      setInternalOpen(false)
+  const handleConfirm = async () => {
+    try {
+      await deleteNode(nodeId)
+      onConfirm?.()
+      if (onOpenChange) {
+        onOpenChange(false)
+      } else {
+        setInternalOpen(false)
+      }
+    } catch (error) {
+      // Error is already handled in the store, just don't close the dialog
+      console.error('Failed to delete node:', error)
     }
   }
 
@@ -56,15 +61,11 @@ export function DeleteConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {children && (
-        <DialogTrigger asChild>
-          {children}
-        </DialogTrigger>
-      )}
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       {!children && controlledOpen === undefined && (
         <DialogTrigger asChild>
           <Button variant="destructive" size="sm">
-            <Trash2 className="h-4 w-4 mr-2" />
+            <Trash2 className="h-4 w-4" />
             Delete
           </Button>
         </DialogTrigger>
@@ -83,7 +84,16 @@ export function DeleteConfirmDialog({
               Cancel
             </Button>
           </DialogClose>
-          <Button variant="destructive" onClick={handleConfirm}>
+          <Button
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={operationLoading.deleteNode === nodeId}
+          >
+            {operationLoading.deleteNode === nodeId ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
             Delete
           </Button>
         </DialogFooter>
