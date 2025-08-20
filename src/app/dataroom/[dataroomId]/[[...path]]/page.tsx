@@ -52,12 +52,12 @@ export default function DataroomPathPage() {
 
   // Show loader immediately on component mount - only on first load
   useEffect(() => {
-    if (!hasShownLoader && (!dataroom || !isInitialized)) {
-      setMessage('Loading dataroom...')
+    if (!hasShownLoader && !dataroom) {
+      setMessage('Loading Documents...')
       showLoader()
       setHasShownLoader(true)
     }
-  }, [dataroom, isInitialized, hasShownLoader, setMessage, showLoader])
+  }, [dataroom, hasShownLoader, setMessage, showLoader])
 
   const handleProgressUpdate = (
     progress: number,
@@ -280,8 +280,8 @@ export default function DataroomPathPage() {
     )
   }
 
-  // Don't render content until dataroom is loaded and initialized
-  if (!dataroom || !isInitialized) {
+  // Don't render content until dataroom is loaded
+  if (!dataroom) {
     return null
   }
 
