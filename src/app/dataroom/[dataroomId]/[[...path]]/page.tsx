@@ -47,6 +47,8 @@ export default function DataroomPathPage() {
   const [uploadStatus, setUploadStatus] = useState<
     'preparing' | 'uploading' | 'complete' | 'error'
   >('preparing')
+  const [animatingOut, setAnimatingOut] = useState(false)
+  const [showInitialLoader, setShowInitialLoader] = useState(true)
 
   const handleProgressUpdate = (
     progress: number,
@@ -59,6 +61,8 @@ export default function DataroomPathPage() {
   // Load dataroom data first and reset initialization when dataroomId changes
   useEffect(() => {
     setIsInitialized(false) // Reset when dataroomId changes
+    setAnimatingOut(false) // Reset animation state
+    setShowInitialLoader(true) // Reset loader state
     if (status === 'authenticated' && dataroomId && !dataroom) {
       loadDataroomById(dataroomId)
     }
@@ -94,6 +98,19 @@ export default function DataroomPathPage() {
       }
     }
   }, [isInitialized, searchParams, selectMultiple])
+
+  // Handle loading animation when data is loaded
+  useEffect(() => {
+    if (dataroom && isLoading === false && showInitialLoader && !animatingOut) {
+      const timer = setTimeout(async () => {
+        setAnimatingOut(true)
+        await new Promise(resolve => setTimeout(resolve, 300))
+        setShowInitialLoader(false)
+      }, 1000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [dataroom, isLoading, showInitialLoader, animatingOut])
 
   useEffect(() => {
     if (!isInitialized || !dataroom || !currentFolderId) return
@@ -225,9 +242,7 @@ export default function DataroomPathPage() {
     setUploadStatus('preparing')
   }
 
-  if (status === 'loading' || (isLoading && !isInitialized)) {
-    return <HarveyLoader />
-  }
+  const showLoading = status === 'loading' || isLoading || showInitialLoader
 
   if (status === 'unauthenticated') {
     return (
@@ -264,6 +279,18 @@ export default function DataroomPathPage() {
   }
 
   return (
+    <div className="relative">
+      {showLoading && (
+        <div 
+          className={`fixed inset-0 z-50 bg-background flex items-center justify-center ${
+            animatingOut 
+              ? 'animate-out fade-out-0 zoom-out-95 duration-300' 
+              : 'animate-in fade-in-0 zoom-in-95'
+          }`}
+        >
+          <HarveyLoader />
+        </div>
+      )}
     <SidebarProvider
       style={{
         '--sidebar-width': '20rem',
@@ -348,5 +375,6 @@ export default function DataroomPathPage() {
         onProgressUpdate={handleProgressUpdate}
       />
     </SidebarProvider>
+    </div>
   )
 }

@@ -54,7 +54,15 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
   const handleCopyShareLink = async () => {
     if (!dataroom?.shareToken) return
 
-    const shareUrl = `${window.location.origin}/share/${dataroom.shareToken}`
+    const pathSegments = breadcrumbs
+      .slice(1)
+      .map((crumb) => encodeURIComponent(crumb.name))
+
+    const folderPath = pathSegments.length > 0 
+      ? `/${pathSegments.join('/')}`
+      : ''
+
+    const shareUrl = `${window.location.origin}/share/${dataroom.shareToken}${folderPath}`
     try {
       await navigator.clipboard.writeText(shareUrl)
     } catch (error) {

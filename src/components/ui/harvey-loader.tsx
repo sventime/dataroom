@@ -2,7 +2,7 @@ interface HarveyLoaderProps {
   message?: string
 }
 
-export function HarveyLoader({ message = 'Loading Documents...' }: HarveyLoaderProps) {
+export function HarveyLoader({ message = 'Loading your space...' }: HarveyLoaderProps) {
   return (
     <div className="min-h-screen flex items-center justify-center animate-pulse transition">
       <div className="text-center">
