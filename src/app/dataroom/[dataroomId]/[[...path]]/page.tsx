@@ -24,7 +24,7 @@ export default function DataroomPathPage() {
   const searchParams = useSearchParams()
   const dataroomId = params.dataroomId as string
   const path = (params.path as string[]) || []
-  const { hideLoader, showLoader } = useLoader()
+  const { hideLoader, showLoader, setMessage } = useLoader()
 
   const {
     breadcrumbs,
@@ -48,6 +48,16 @@ export default function DataroomPathPage() {
     'preparing' | 'uploading' | 'complete' | 'error'
   >('preparing')
   const [isNavigatingFromUrl, setIsNavigatingFromUrl] = useState(false)
+  const [hasShownLoader, setHasShownLoader] = useState(false)
+
+  // Show loader immediately on component mount - only on first load
+  useEffect(() => {
+    if (!hasShownLoader && (!dataroom || !isInitialized)) {
+      setMessage('Loading dataroom...')
+      showLoader()
+      setHasShownLoader(true)
+    }
+  }, [dataroom, isInitialized, hasShownLoader, setMessage, showLoader])
 
   const handleProgressUpdate = (
     progress: number,
@@ -57,13 +67,12 @@ export default function DataroomPathPage() {
     setUploadStatus(status)
   }
 
+  // Load dataroom data
   useEffect(() => {
-    setIsInitialized(false)
-
     if (!dataroom || dataroom.id !== dataroomId) {
       loadDataroomById(dataroomId)
     }
-  }, [status, dataroomId])
+  }, [dataroomId, dataroom, loadDataroomById])
 
   useEffect(() => {
     if (dataroom && !isInitialized) {
@@ -98,12 +107,16 @@ export default function DataroomPathPage() {
     }
   }, [isInitialized, searchParams, selectMultiple])
 
-  // Hide loader when everything is loaded and initialized
+  // Handle animate out when loading completes
   useEffect(() => {
-    if (isInitialized && dataroom && !isLoading && currentFolderId) {
-      hideLoader(true)
+    if (dataroom && isInitialized && !isLoading && currentFolderId) {
+      const timer = setTimeout(() => {
+        hideLoader(true)
+      }, 500)
+
+      return () => clearTimeout(timer)
     }
-  }, [isInitialized, dataroom, isLoading, currentFolderId, hideLoader])
+  }, [dataroom, isInitialized, isLoading, currentFolderId, hideLoader])
 
   useEffect(() => {
     if (!isInitialized || !dataroom || !currentFolderId) return
@@ -265,6 +278,11 @@ export default function DataroomPathPage() {
         </div>
       </div>
     )
+  }
+
+  // Don't render content until dataroom is loaded and initialized
+  if (!dataroom || !isInitialized) {
+    return null
   }
 
   return (
