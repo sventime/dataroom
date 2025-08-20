@@ -12,16 +12,16 @@ export function DialogRenderer() {
   return (
     <>
       <RenameDialog
-        nodeId={dialogState.type === 'rename' ? dialogState.props.nodeId : ''}
-        currentName={dialogState.type === 'rename' ? dialogState.props.currentName : ''}
+        nodeId={dialogState.type === 'rename' ? (dialogState.props.nodeId as string) : ''}
+        currentName={dialogState.type === 'rename' ? (dialogState.props.currentName as string) : ''}
         {...(dialogState.type === 'rename' ? dialogState.props : {})}
         open={dialogState.type === 'rename' && dialogState.open}
         onOpenChange={closeDialog}
       />
 
       <DeleteConfirmDialog
-        nodeId={dialogState.type === 'delete' ? dialogState.props.nodeId : ''}
-        nodeName={dialogState.type === 'delete' ? dialogState.props.nodeName : ''}
+        nodeId={dialogState.type === 'delete' ? (dialogState.props.nodeId as string) : ''}
+        nodeName={dialogState.type === 'delete' ? (dialogState.props.nodeName as string) : ''}
         {...(dialogState.type === 'delete' ? dialogState.props : {})}
         open={dialogState.type === 'delete' && dialogState.open}
         onOpenChange={closeDialog}
@@ -34,7 +34,7 @@ export function DialogRenderer() {
       />
 
       <BulkDeleteConfirmDialog
-        nodeIds={dialogState.type === 'bulkDelete' ? dialogState.props.nodeIds : []}
+        nodeIds={dialogState.type === 'bulkDelete' ? (dialogState.props.nodeIds as string[]) : []}
         {...(dialogState.type === 'bulkDelete' ? dialogState.props : {})}
         open={dialogState.type === 'bulkDelete' && dialogState.open}
         onOpenChange={closeDialog}

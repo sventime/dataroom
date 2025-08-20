@@ -54,7 +54,7 @@ export function RenameDialog({
     if (!node) return
 
     const parent = nodes[node.parentId!]
-    if (parent && parent.children) {
+    if (parent && parent.type === 'folder' && 'children' in parent) {
       const nameExists = parent.children.some((childId) => {
         if (childId === nodeId) return false
         const child = nodes[childId]

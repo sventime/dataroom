@@ -41,11 +41,11 @@ export function CreateFolderDialog({
     if (!folderName.trim()) return
 
     const trimmedName = folderName.trim()
-    const targetParentId = parentId || currentFolderId
+    const targetParentId = parentId || currentFolderId || 'root'
     const parentNode = nodes[targetParentId]
 
     // Check if name already exists in current folder
-    if (parentNode?.children) {
+    if (parentNode && parentNode.type === 'folder' && 'children' in parentNode) {
       const nameExists = parentNode.children.some((childId) => {
         const child = nodes[childId]
         return child && child.name.toLowerCase() === trimmedName.toLowerCase()

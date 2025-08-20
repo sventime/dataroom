@@ -162,7 +162,7 @@ export function FileUploadConflictDialog({
             const uploadInterval = simulateProgress(20, 95, 2000, 'uploading')
 
             const apiParentId = targetParentId === 'root' ? null : targetParentId
-            await uploadFiles(nonConflictingFiles, apiParentId)
+            await uploadFiles(nonConflictingFiles, apiParentId || undefined)
 
             clearInterval(uploadInterval)
             setUploadProgress(100)
@@ -188,7 +188,7 @@ export function FileUploadConflictDialog({
         )
 
         const apiParentId = targetParentId === 'root' ? null : targetParentId
-        await uploadFiles(files, apiParentId)
+        await uploadFiles(files, apiParentId || undefined)
 
         clearInterval(uploadInterval)
         setUploadProgress(100)
@@ -274,7 +274,7 @@ export function FileUploadConflictDialog({
 
       if (filesToUpload.length > 0) {
         const apiParentId = targetParentId === 'root' ? null : targetParentId
-        await uploadFiles(filesToUpload, apiParentId)
+        await uploadFiles(filesToUpload, apiParentId || undefined)
       }
     } catch (error) {
       console.error('Error uploading resolved conflicts:', error)

@@ -5,7 +5,7 @@ interface SendVerificationEmailProps {
   identifier: string
   url: string
   provider: {
-    server: any
+    server: Record<string, unknown>
     from: string
   }
 }

@@ -175,7 +175,7 @@ export function Search() {
           )}
 
           {searchQuery.trim() && searchResults.length === 0 && (
-            <CommandEmpty>No files or folders found for "{searchQuery}".</CommandEmpty>
+            <CommandEmpty>No files or folders found for &quot;{searchQuery}&quot;.</CommandEmpty>
           )}
         </CommandList>
       </CommandDialog>

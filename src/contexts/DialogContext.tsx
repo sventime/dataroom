@@ -6,12 +6,12 @@ type DialogType = 'rename' | 'delete' | 'createFolder' | 'bulkDelete'
 
 interface DialogState {
   type: DialogType | null
-  props: any
+  props: Record<string, unknown>
   open: boolean
 }
 
 interface DialogContextType {
-  openDialog: (type: DialogType, props?: any) => void
+  openDialog: (type: DialogType, props?: Record<string, unknown>) => void
   closeDialog: () => void
   dialogState: DialogState
 }
@@ -25,7 +25,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     open: false,
   })
 
-  const openDialog = useCallback((type: DialogType, props: any = {}) => {
+  const openDialog = useCallback((type: DialogType, props: Record<string, unknown> = {}) => {
     setDialogState({
       type,
       props,

@@ -31,8 +31,8 @@ interface DataroomActions {
   navigateToFolder: (folderId: string, preserveSelection?: boolean) => void
   navigateToPath: (pathSegments: string[]) => void
   
-  createFolder: (name: string, parentId?: string) => Promise<{ conflicts?: any[] }>
-  uploadFiles: (files: File[], parentId?: string) => Promise<{ conflicts?: any[] }>
+  createFolder: (name: string, parentId?: string) => Promise<{ conflicts?: unknown[] }>
+  uploadFiles: (files: File[], parentId?: string) => Promise<{ conflicts?: unknown[] }>
   renameNode: (nodeId: string, newName: string) => Promise<void>
   deleteNode: (nodeId: string) => Promise<void>
   deleteBulk: (nodeIds: string[]) => Promise<void>
@@ -65,7 +65,7 @@ const convertApiNode = (apiNode: ApiDataroomNode): DataroomNode => ({
   size: apiNode.size || 0,
   createdAt: new Date(apiNode.createdAt),
   updatedAt: new Date(apiNode.updatedAt),
-  mimeType: apiNode.mimeType
+  mimeType: apiNode.mimeType || 'application/octet-stream'
 })
 
 const initialState: DataroomState = {
@@ -132,7 +132,6 @@ export const useDataroomStore = create<DataroomStore>()(
           type: 'folder',
           parentId: null,
           children: [],
-          size: 0,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -425,7 +424,7 @@ export const useDataroomStore = create<DataroomStore>()(
       getNodePath: (nodeId: string): Breadcrumb[] => {
         const { nodes } = get()
         const path: Breadcrumb[] = []
-        let current = nodes[nodeId]
+        let current: DataroomNode | null = nodes[nodeId] || null
 
         while (current) {
           path.unshift({
@@ -434,7 +433,7 @@ export const useDataroomStore = create<DataroomStore>()(
             path: '/' + path.map(p => p.name).join('/')
           })
 
-          current = current.parentId ? nodes[current.parentId] : null
+          current = current.parentId ? nodes[current.parentId] || null : null
         }
 
         return path

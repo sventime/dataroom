@@ -11,11 +11,12 @@ async function isDescendantOfFolder(fileId: string, sharedFolderId: string): Pro
   
   if (!file) return false
   
-  let current = file
-  while (current.parentId) {
-    if (current.parentId === sharedFolderId) return true
-    current = file.dataroom.nodes.find(n => n.id === current.parentId) || current
-    if (!current || current.parentId === current.id) break
+  let currentId = file.parentId
+  while (currentId) {
+    if (currentId === sharedFolderId) return true
+    const parent = file.dataroom.nodes.find(n => n.id === currentId)
+    if (!parent || parent.parentId === parent.id) break
+    currentId = parent.parentId
   }
   return false
 }
@@ -104,7 +105,7 @@ export async function GET(
     headers.set('Content-Disposition', `attachment; filename="${fileNode.name}"`)
     headers.set('Content-Length', buffer.length.toString())
     
-    return new NextResponse(buffer, { headers })
+    return new NextResponse(buffer as unknown as BodyInit, { headers })
   } catch (error) {
     console.error('Error serving file download:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

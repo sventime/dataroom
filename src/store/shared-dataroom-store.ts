@@ -157,14 +157,14 @@ export const useSharedDataroomStore = create<SharedDataroomStore>()(
 
         if (!sharedRootId) {
           const breadcrumbs = [{ id: null, name: dataroom.name }]
-          let current = dataroom.nodes.find(n => n.id === currentFolderId)
+          let current: SharedDataroomNode | undefined = dataroom.nodes.find(n => n.id === currentFolderId)
 
           const path = []
           while (current) {
             path.unshift({ id: current.id, name: current.name })
             current = current.parentId
-              ? dataroom.nodes.find(n => n.id === current.parentId)
-              : null
+              ? dataroom.nodes.find(n => n.id === current!.parentId)
+              : undefined
           }
 
           return [...breadcrumbs, ...path]
@@ -176,8 +176,8 @@ export const useSharedDataroomStore = create<SharedDataroomStore>()(
         while (current && current.id !== sharedRootId) {
           breadcrumbs.unshift({ id: current.id, name: current.name })
           current = current.parentId
-            ? dataroom.nodes.find(n => n.id === current.parentId)
-            : null
+            ? dataroom.nodes.find(n => n.id === current!.parentId)
+            : undefined
         }
 
         const sharedFolder = dataroom.nodes.find(n => n.id === sharedRootId)
@@ -199,8 +199,8 @@ export const useSharedDataroomStore = create<SharedDataroomStore>()(
         while (current && current.id !== sharedRootId) {
           pathSegments.unshift(encodeURIComponent(current.name))
           current = current.parentId
-            ? dataroom.nodes.find(n => n.id === current.parentId)
-            : null
+            ? dataroom.nodes.find(n => n.id === current!.parentId)
+            : undefined
         }
 
         return pathSegments
@@ -220,8 +220,8 @@ export const useSharedDataroomStore = create<SharedDataroomStore>()(
         while (current) {
           if (current.id === sharedRootId) return true
           current = current.parentId
-            ? dataroom.nodes.find(n => n.id === current.parentId)
-            : null
+            ? dataroom.nodes.find(n => n.id === current!.parentId)
+            : undefined
         }
         return false
       },

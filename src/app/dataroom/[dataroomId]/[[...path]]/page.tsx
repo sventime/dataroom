@@ -296,7 +296,7 @@ export default function DataroomPathPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-muted-foreground">You don't have access to this dataroom.</p>
+          <p className="text-muted-foreground">You don&apos;t have access to this dataroom.</p>
         </div>
       </div>
     )
@@ -313,7 +313,7 @@ export default function DataroomPathPage() {
         style={{
           '--sidebar-width': '20rem',
           '--sidebar-width-mobile': '20rem',
-        }}
+        } as React.CSSProperties}
       >
         <AppSidebar />
         <SidebarInset>
@@ -385,7 +385,7 @@ export default function DataroomPathPage() {
 
         <FileUploadConflictDialog
           files={pendingFiles}
-          parentId={currentFolderId}
+          parentId={currentFolderId || undefined}
           onComplete={handleUploadComplete}
           open={pendingFiles.length > 0 && !isLoading}
           onProgressUpdate={handleProgressUpdate}
