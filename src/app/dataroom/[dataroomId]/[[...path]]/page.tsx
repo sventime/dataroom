@@ -36,6 +36,7 @@ export default function DataroomPathPage() {
     dataroom,
     navigateToPath,
     selectMultiple,
+    getChildNodes,
   } = useDataroomStore()
 
   const [isDragOver, setIsDragOver] = useState(false)
@@ -87,16 +88,37 @@ export default function DataroomPathPage() {
     }
   }, [dataroom, isInitialized, path, navigateToPath, navigateToFolder])
 
+  // Get nodes to check if they're loaded
+  const currentNodes = currentFolderId ? getChildNodes(currentFolderId) : []
+
   useEffect(() => {
-    if (isInitialized && dataroom) {
+    if (dataroom && currentFolderId && currentNodes.length > 0) {
       const selectedParam = searchParams.get('selected')
       const currentSelection = useDataroomStore.getState().selectedNodeIds
 
+      console.log('URL sync effect:', {
+        dataroom: !!dataroom,
+        currentFolderId,
+        nodesCount: currentNodes.length,
+        selectedParam,
+        currentSelection,
+      })
+
       if (selectedParam) {
-        const selectedIds = selectedParam.split(',').filter((id) => id.trim())
+        // Decode the URL-encoded parameter first
+        const decodedParam = decodeURIComponent(selectedParam)
+        const selectedIds = decodedParam.split(',').filter((id) => id.trim())
         const selectionChanged =
           selectedIds.length !== currentSelection.length ||
           !selectedIds.every((id) => currentSelection.includes(id))
+
+        console.log('Selection check:', {
+          selectedParam,
+          decodedParam,
+          selectedIds,
+          selectionChanged,
+          will_update: selectedIds.length > 0 && selectionChanged
+        })
 
         if (selectedIds.length > 0 && selectionChanged) {
           selectMultiple(selectedIds)
@@ -105,7 +127,7 @@ export default function DataroomPathPage() {
         selectMultiple([])
       }
     }
-  }, [isInitialized, searchParams, selectMultiple])
+  }, [dataroom, currentFolderId, currentNodes.length, searchParams, selectMultiple, getChildNodes])
 
   // Handle animate out when loading completes
   useEffect(() => {

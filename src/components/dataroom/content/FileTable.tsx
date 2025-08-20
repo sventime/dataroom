@@ -31,7 +31,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -221,6 +221,7 @@ export function FileTable({ className }: FileTableProps) {
   } = useDataroomStore()
   const { openDialog } = useDialog()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const nodes = getChildNodes(currentFolderId)
   const [allSelected, setAllSelected] = useState(false)
@@ -249,12 +250,66 @@ export function FileTable({ className }: FileTableProps) {
     router.replace(newPath)
   }
 
+  // Sync URL selections whenever URL or nodes change
+  useEffect(() => {
+    if (nodes.length > 0) {
+      const selectedParam = searchParams.get('selected')
+      const currentSelection = selectedNodeIds
+      
+      console.log('FileTable URL sync check:', {
+        selectedParam,
+        currentSelection,
+        nodes: nodes.length
+      })
+      
+      if (selectedParam) {
+        const decodedParam = decodeURIComponent(selectedParam)
+        const selectedIds = decodedParam.split(',').filter((id) => id.trim())
+        const nodeIds = nodes.map((node) => node.id)
+        const validSelectedIds = selectedIds.filter((id) => nodeIds.includes(id))
+        
+        // Check if selection has changed
+        const selectionChanged = 
+          validSelectedIds.length !== currentSelection.length ||
+          !validSelectedIds.every((id) => currentSelection.includes(id))
+        
+        console.log('FileTable URL sync:', {
+          selectedParam,
+          decodedParam,
+          selectedIds,
+          nodeIds,
+          validSelectedIds,
+          currentSelection,
+          selectionChanged,
+          willUpdate: selectionChanged && validSelectedIds.length > 0
+        })
+        
+        if (selectionChanged && validSelectedIds.length > 0) {
+          selectMultiple(validSelectedIds)
+        } else if (selectionChanged && validSelectedIds.length === 0) {
+          selectMultiple([])
+        }
+      } else if (currentSelection.length > 0) {
+        console.log('FileTable clearing selection - no URL param')
+        selectMultiple([])
+      }
+    }
+  }, [nodes, searchParams, selectMultiple]) // Removed hasInitialized and selectedNodeIds to avoid conflicts
+
   useEffect(() => {
     const currentFolderNodeIds = nodes.map((node) => node.id)
     const selectedInCurrentFolder = selectedNodeIds.filter((id) =>
       currentFolderNodeIds.includes(id),
     )
     setAllSelected(nodes.length > 0 && selectedInCurrentFolder.length === nodes.length)
+    
+    console.log('FileTable selection state:', {
+      nodes: nodes.length,
+      currentFolderNodeIds,
+      selectedNodeIds,
+      selectedInCurrentFolder,
+      allSelected: nodes.length > 0 && selectedInCurrentFolder.length === nodes.length
+    })
   }, [selectedNodeIds, nodes])
 
   const handleSelectAll = (checked: boolean) => {
