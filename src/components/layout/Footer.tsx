@@ -1,4 +1,4 @@
-export default function Footer() {
+function Footer() {
   return (
     <footer className="border-t border-gray-800 p-5 text-center text-muted text-sm">
       <p className="">
@@ -8,3 +8,5 @@ export default function Footer() {
     </footer>
   )
 }
+
+export default Footer
