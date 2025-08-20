@@ -3,6 +3,23 @@ import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { getFileBuffer } from '@/lib/file-storage'
 
+async function isDescendantOfFolder(fileId: string, sharedFolderId: string): Promise<boolean> {
+  const file = await prisma.dataroomNode.findUnique({
+    where: { id: fileId },
+    include: { dataroom: { include: { nodes: true } } }
+  })
+  
+  if (!file) return false
+  
+  let current = file
+  while (current.parentId) {
+    if (current.parentId === sharedFolderId) return true
+    current = file.dataroom.nodes.find(n => n.id === current.parentId) || current
+    if (!current || current.parentId === current.id) break
+  }
+  return false
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,18 +34,29 @@ export async function GET(
 
     if (shareToken) {
       // Public access via share token
-      const dataroom = await prisma.dataroom.findUnique({
-        where: { shareToken },
+      const shareLink = await prisma.shareLink.findUnique({
+        where: { token: shareToken },
         include: {
-          nodes: {
-            where: { id: id }
+          dataroom: {
+            include: {
+              nodes: {
+                where: { id: id }
+              }
+            }
           }
         }
       })
       
-      if (dataroom && dataroom.nodes.length > 0) {
-        fileNode = dataroom.nodes[0]
-        hasAccess = true
+      if (shareLink && shareLink.dataroom.nodes.length > 0) {
+        fileNode = shareLink.dataroom.nodes[0]
+        
+        // Verify file is accessible within shared folder scope
+        if (shareLink.sharedFolderId) {
+          hasAccess = fileNode.parentId === shareLink.sharedFolderId || 
+            await isDescendantOfFolder(fileNode.id, shareLink.sharedFolderId)
+        } else {
+          hasAccess = true
+        }
       }
     } else {
       // Authenticated access

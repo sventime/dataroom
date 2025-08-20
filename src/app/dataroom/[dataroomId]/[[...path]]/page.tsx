@@ -1,29 +1,30 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import SignOutButton from '@/components/auth/sign-out-button'
+import { Breadcrumbs } from '@/components/dataroom/breadcrumbs/Breadcrumbs'
+import { FileTable } from '@/components/dataroom/content/FileTable'
+import { FileUploadConflictDialog } from '@/components/dataroom/dialogs/FileUploadConflictDialog'
 import { Search } from '@/components/dataroom/search'
 import { AppSidebar } from '@/components/layout/app-sidebar'
-import { FileTable } from '@/components/dataroom/content/FileTable'
-import { Breadcrumbs } from '@/components/dataroom/breadcrumbs/Breadcrumbs'
-import { FileUploadConflictDialog } from '@/components/dataroom/dialogs/FileUploadConflictDialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import { HarveyLoader } from '@/components/ui/harvey-loader'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { useLoader } from '@/contexts/loader-context'
 import { useDataroomStore } from '@/store/dataroom-store'
 import { Upload } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 export default function DataroomPathPage() {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
   const dataroomId = params.dataroomId as string
   const path = (params.path as string[]) || []
+  const { hideLoader, showLoader } = useLoader()
 
   const {
     breadcrumbs,
@@ -34,7 +35,6 @@ export default function DataroomPathPage() {
     error,
     dataroom,
     navigateToPath,
-    operationLoading,
     selectMultiple,
   } = useDataroomStore()
 
@@ -47,8 +47,7 @@ export default function DataroomPathPage() {
   const [uploadStatus, setUploadStatus] = useState<
     'preparing' | 'uploading' | 'complete' | 'error'
   >('preparing')
-  const [animatingOut, setAnimatingOut] = useState(false)
-  const [showInitialLoader, setShowInitialLoader] = useState(true)
+  const [isNavigatingFromUrl, setIsNavigatingFromUrl] = useState(false)
 
   const handleProgressUpdate = (
     progress: number,
@@ -58,38 +57,38 @@ export default function DataroomPathPage() {
     setUploadStatus(status)
   }
 
-  // Load dataroom data first and reset initialization when dataroomId changes
   useEffect(() => {
-    setIsInitialized(false) // Reset when dataroomId changes
-    setAnimatingOut(false) // Reset animation state
-    setShowInitialLoader(true) // Reset loader state
-    if (status === 'authenticated' && dataroomId && !dataroom) {
+    setIsInitialized(false)
+
+    if (!dataroom || dataroom.id !== dataroomId) {
       loadDataroomById(dataroomId)
     }
-  }, [status, dataroomId, dataroom])
+  }, [status, dataroomId])
 
-  // Handle initial navigation after dataroom is loaded
   useEffect(() => {
     if (dataroom && !isInitialized) {
+      setIsNavigatingFromUrl(true)
       if (path.length > 0) {
         navigateToPath(path)
       } else {
         navigateToFolder('root')
       }
       setIsInitialized(true)
+      setTimeout(() => setIsNavigatingFromUrl(false), 100)
     }
-  }, [dataroom, isInitialized])
+  }, [dataroom, isInitialized, path, navigateToPath, navigateToFolder])
 
   useEffect(() => {
     if (isInitialized && dataroom) {
       const selectedParam = searchParams.get('selected')
       const currentSelection = useDataroomStore.getState().selectedNodeIds
-      
+
       if (selectedParam) {
-        const selectedIds = selectedParam.split(',').filter(id => id.trim())
-        const selectionChanged = selectedIds.length !== currentSelection.length || 
-          !selectedIds.every(id => currentSelection.includes(id))
-        
+        const selectedIds = selectedParam.split(',').filter((id) => id.trim())
+        const selectionChanged =
+          selectedIds.length !== currentSelection.length ||
+          !selectedIds.every((id) => currentSelection.includes(id))
+
         if (selectedIds.length > 0 && selectionChanged) {
           selectMultiple(selectedIds)
         }
@@ -99,18 +98,12 @@ export default function DataroomPathPage() {
     }
   }, [isInitialized, searchParams, selectMultiple])
 
-  // Handle loading animation when data is loaded
+  // Hide loader when everything is loaded and initialized
   useEffect(() => {
-    if (dataroom && isLoading === false && showInitialLoader && !animatingOut) {
-      const timer = setTimeout(async () => {
-        setAnimatingOut(true)
-        await new Promise(resolve => setTimeout(resolve, 300))
-        setShowInitialLoader(false)
-      }, 1000)
-      
-      return () => clearTimeout(timer)
+    if (isInitialized && dataroom && !isLoading && currentFolderId) {
+      hideLoader(true)
     }
-  }, [dataroom, isLoading, showInitialLoader, animatingOut])
+  }, [isInitialized, dataroom, isLoading, currentFolderId, hideLoader])
 
   useEffect(() => {
     if (!isInitialized || !dataroom || !currentFolderId) return
@@ -118,31 +111,37 @@ export default function DataroomPathPage() {
     const pathSegments = breadcrumbs
       .slice(1)
       .map((crumb) => encodeURIComponent(crumb.name))
-
     const expectedPath =
       pathSegments.length > 0
         ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
         : `/dataroom/${dataroom.id}`
 
-    const currentURL = window.location.pathname
-    const currentSearch = window.location.search
-
-    if (currentURL !== expectedPath) {
+    // Only update URL if we're not already navigating from a URL change
+    if (window.location.pathname !== expectedPath && !isNavigatingFromUrl) {
       setTimeout(() => {
-        const latestURL = window.location.pathname
-        const latestSearch = window.location.search
-        
-        if (latestURL !== expectedPath) {
-          router.replace(expectedPath + latestSearch)
+        if (window.location.pathname !== expectedPath && !isNavigatingFromUrl) {
+          router.push(expectedPath + window.location.search)
         }
       }, 150)
     }
-  }, [currentFolderId, isInitialized])
+  }, [currentFolderId, isInitialized, breadcrumbs, dataroom, router, isNavigatingFromUrl])
+
+  // Handle URL changes (back/forward navigation)
+  useEffect(() => {
+    if (isInitialized && dataroom) {
+      setIsNavigatingFromUrl(true)
+      if (path.length > 0) {
+        navigateToPath(path)
+      } else {
+        navigateToFolder('root')
+      }
+      setTimeout(() => setIsNavigatingFromUrl(false), 100)
+    }
+  }, [path.join('/'), isInitialized, dataroom, navigateToPath, navigateToFolder])
 
   useEffect(() => {
     const handleFileUpload = (event: CustomEvent) => {
-      if (isUploading) return // Prevent new uploads while one is in progress
-
+      if (isUploading) return
       const { files } = event.detail
       setPendingFiles(Array.from(files))
       setIsUploading(true)
@@ -153,11 +152,10 @@ export default function DataroomPathPage() {
     window.addEventListener('fileUpload', handleFileUpload as EventListener)
     return () =>
       window.removeEventListener('fileUpload', handleFileUpload as EventListener)
-  }, [])
+  }, [isUploading])
 
-  // Add comprehensive drag event listeners
   useEffect(() => {
-    const handleWindowDragEnter = (e: DragEvent) => {
+    const handleDragEnter = (e: DragEvent) => {
       e.preventDefault()
       if (e.dataTransfer?.types.includes('Files')) {
         setDragCounter((prev) => prev + 1)
@@ -165,7 +163,7 @@ export default function DataroomPathPage() {
       }
     }
 
-    const handleWindowDragLeave = (e: DragEvent) => {
+    const handleDragLeave = (e: DragEvent) => {
       e.preventDefault()
       setDragCounter((prev) => {
         const newCount = prev - 1
@@ -177,43 +175,36 @@ export default function DataroomPathPage() {
       })
     }
 
-    const handleWindowDragOver = (e: DragEvent) => {
-      e.preventDefault()
-    }
+    const handleDragOver = (e: DragEvent) => e.preventDefault()
 
-    const handleWindowDrop = (e: DragEvent) => {
-      // Only prevent default if the drop is outside our main content area
+    const handleDrop = (e: DragEvent) => {
       const mainContent = document.querySelector('[data-drop-zone="true"]')
       if (!mainContent || !mainContent.contains(e.target as Node)) {
         e.preventDefault()
         setIsDragOver(false)
         setDragCounter(0)
       }
-      // Don't clear drag state if drop is inside main content - let the main handler deal with it
     }
 
-    const handleWindowDragEnd = () => {
+    const handleDragEnd = () => {
       setIsDragOver(false)
       setDragCounter(0)
     }
 
-    window.addEventListener('dragenter', handleWindowDragEnter)
-    window.addEventListener('dragleave', handleWindowDragLeave)
-    window.addEventListener('dragover', handleWindowDragOver)
-    window.addEventListener('drop', handleWindowDrop)
-    window.addEventListener('dragend', handleWindowDragEnd)
+    const events = [
+      ['dragenter', handleDragEnter],
+      ['dragleave', handleDragLeave],
+      ['dragover', handleDragOver],
+      ['drop', handleDrop],
+      ['dragend', handleDragEnd],
+    ] as const
 
-    return () => {
-      window.removeEventListener('dragenter', handleWindowDragEnter)
-      window.removeEventListener('dragleave', handleWindowDragLeave)
-      window.removeEventListener('dragover', handleWindowDragOver)
-      window.removeEventListener('drop', handleWindowDrop)
-      window.removeEventListener('dragend', handleWindowDragEnd)
-    }
+    events.forEach(([event, handler]) => window.addEventListener(event, handler))
+    return () =>
+      events.forEach(([event, handler]) => window.removeEventListener(event, handler))
   }, [])
 
   const handleDeleteComplete = () => {
-    // Navigate to parent after deletion
     if (breadcrumbs.length > 1) {
       const parent = breadcrumbs[breadcrumbs.length - 2]
       navigateToFolder(parent.id)
@@ -226,7 +217,7 @@ export default function DataroomPathPage() {
     setIsDragOver(false)
     setDragCounter(0)
 
-    if (isUploading) return // Prevent new uploads while one is in progress
+    if (isUploading) return
 
     const files = Array.from(e.dataTransfer.files)
     setPendingFiles(files)
@@ -241,8 +232,6 @@ export default function DataroomPathPage() {
     setUploadProgress(0)
     setUploadStatus('preparing')
   }
-
-  const showLoading = status === 'loading' || isLoading || showInitialLoader
 
   if (status === 'unauthenticated') {
     return (
@@ -280,101 +269,88 @@ export default function DataroomPathPage() {
 
   return (
     <div className="relative">
-      {showLoading && (
-        <div 
-          className={`fixed inset-0 z-50 bg-background flex items-center justify-center ${
-            animatingOut 
-              ? 'animate-out fade-out-0 zoom-out-95 duration-300' 
-              : 'animate-in fade-in-0 zoom-in-95'
-          }`}
-        >
-          <HarveyLoader />
-        </div>
-      )}
-    <SidebarProvider
-      style={{
-        '--sidebar-width': '20rem',
-        '--sidebar-width-mobile': '20rem',
-      }}
-    >
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 justify-between">
-          <div className="flex h-16 shrink-0 items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4"
-            />
-            <Breadcrumbs onDeleteComplete={handleDeleteComplete} />
-          </div>
-          <div className="flex items-center gap-4">
-            <Search />
-            <SignOutButton />
-          </div>
-        </header>
-
-        <div
-          className={`flex-1 p-4 overflow-auto relative transition-all duration-200 rounded-md ${
-            isDragOver
-              ? 'bg-accent/20 border-2 border-dashed border-muted-foreground'
-              : ''
-          }`}
-          data-drop-zone="true"
-          onDrop={handleDrop}
-        >
-          {(isDragOver || isUploading) && (
-            <div className="absolute inset-0 flex items-center justify-center bg-accent/20 rounded-lg z-50 pointer-events-none animate-in fade-in-0 duration-200">
-              <Card className="shadow-xl animate-in zoom-in-95 duration-200 bg-background min-w-80">
-                <CardContent className="p-8 py-4 text-center">
-                  {isUploading ? (
-                    <>
-                      <Progress
-                        value={Math.round(uploadProgress)}
-                        className="w-full h-2 my-4"
-                      />
-                      <h2 className="mb-1 !font-sans">
-                        {uploadStatus === 'preparing' && 'Uploading Files'}
-                        {uploadStatus === 'uploading' && 'Uploading Files'}
-                        {uploadStatus === 'complete' && 'Upload Complete!'}
-                        {uploadStatus === 'error' && 'Upload Failed'}
-                      </h2>
-                      <p className="text-muted-foreground text-sm">
-                        {uploadStatus === 'preparing' &&
-                          `Uploading ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''} to your dataroom...`}
-                        {uploadStatus === 'uploading' &&
-                          `Uploading ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''} to your dataroom...`}
-                        {uploadStatus === 'complete' &&
-                          `Successfully uploaded ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''}!`}
-                        {uploadStatus === 'error' && 'Please try again'}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-10 w-10 mx-auto mb-4 text-primary" />
-                      <h2 className="mb-1 !font-sans">Release To Upload Files</h2>
-                      <p className="text-muted-foreground text-sm">
-                        Files will be uploaded to the current folder
-                      </p>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+      <SidebarProvider
+        style={{
+          '--sidebar-width': '20rem',
+          '--sidebar-width-mobile': '20rem',
+        }}
+      >
+        <AppSidebar />
+        <SidebarInset>
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 justify-between">
+            <div className="flex h-16 shrink-0 items-center gap-2">
+              <SidebarTrigger className="-ml-1" />
+              <Separator
+                orientation="vertical"
+                className="mr-2 data-[orientation=vertical]:h-4"
+              />
+              <Breadcrumbs onDeleteComplete={handleDeleteComplete} />
             </div>
-          )}
-          <FileTable />
-        </div>
-      </SidebarInset>
+            <div className="flex items-center gap-4">
+              <Search />
+              <SignOutButton />
+            </div>
+          </header>
 
-      {/* File Upload Conflict Dialog */}
-      <FileUploadConflictDialog
-        files={pendingFiles}
-        parentId={currentFolderId}
-        onComplete={handleUploadComplete}
-        open={pendingFiles.length > 0 && !isLoading}
-        onProgressUpdate={handleProgressUpdate}
-      />
-    </SidebarProvider>
+          <div
+            className={`flex-1 p-4 overflow-auto relative transition-all duration-200 rounded-md ${
+              isDragOver
+                ? 'bg-accent/20 border-2 border-dashed border-muted-foreground'
+                : ''
+            }`}
+            data-drop-zone="true"
+            onDrop={handleDrop}
+          >
+            {(isDragOver || isUploading) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-accent/20 rounded-lg z-50 pointer-events-none animate-in fade-in-0 duration-200">
+                <Card className="shadow-xl animate-in zoom-in-95 duration-200 bg-background min-w-80">
+                  <CardContent className="p-8 py-4 text-center">
+                    {isUploading ? (
+                      <>
+                        <Progress
+                          value={Math.round(uploadProgress)}
+                          className="w-full h-2 my-4"
+                        />
+                        <h2 className="mb-1 !font-sans">
+                          {uploadStatus === 'complete'
+                            ? 'Upload Complete!'
+                            : uploadStatus === 'error'
+                              ? 'Upload Failed'
+                              : 'Uploading Files'}
+                        </h2>
+                        <p className="text-muted-foreground text-sm">
+                          {uploadStatus === 'complete'
+                            ? `Successfully uploaded ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''}!`
+                            : uploadStatus === 'error'
+                              ? 'Please try again'
+                              : `Uploading ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''} to your dataroom...`}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-10 w-10 mx-auto mb-4 text-primary" />
+                        <h2 className="mb-1 !font-sans">Release To Upload Files</h2>
+                        <p className="text-muted-foreground text-sm">
+                          Files will be uploaded to the current folder
+                        </p>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+            <FileTable />
+          </div>
+        </SidebarInset>
+
+        <FileUploadConflictDialog
+          files={pendingFiles}
+          parentId={currentFolderId}
+          onComplete={handleUploadComplete}
+          open={pendingFiles.length > 0 && !isLoading}
+          onProgressUpdate={handleProgressUpdate}
+        />
+      </SidebarProvider>
     </div>
   )
 }

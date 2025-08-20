@@ -1,9 +1,12 @@
+import { DialogRenderer } from '@/components/dialogs/DialogRenderer'
+import AuthSessionProvider from '@/components/providers/session-provider'
+import { ThemeProvider } from '@/components/providers/theme-provider'
+import { GlobalLoader } from '@/components/ui/global-loader'
+import { Toaster } from '@/components/ui/sonner'
+import { DialogProvider } from '@/contexts/DialogContext'
+import { LoaderProvider } from '@/contexts/loader-context'
 import type { Metadata } from 'next'
 import './globals.css'
-import { ThemeProvider } from '@/components/providers/theme-provider'
-import AuthSessionProvider from '@/components/providers/session-provider'
-import { DialogProvider } from '@/contexts/DialogContext'
-import { DialogRenderer } from '@/components/dialogs/DialogRenderer'
 
 export const metadata: Metadata = {
   title: 'Harvey: Data Room',
@@ -28,10 +31,14 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <DialogProvider>
-              {children}
-              <DialogRenderer />
-            </DialogProvider>
+            <LoaderProvider>
+              <DialogProvider>
+                {children}
+                <DialogRenderer />
+                <Toaster />
+                <GlobalLoader />
+              </DialogProvider>
+            </LoaderProvider>
           </ThemeProvider>
         </AuthSessionProvider>
       </body>

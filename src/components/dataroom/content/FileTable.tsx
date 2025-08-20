@@ -21,6 +21,7 @@ import { useDialog } from '@/contexts/DialogContext'
 import { useDataroomStore } from '@/store/dataroom-store'
 import type { DataroomNode } from '@/types/dataroom'
 import {
+  Copy,
   Download,
   Edit,
   ExternalLink,
@@ -32,6 +33,7 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 interface FileTableProps {
   className?: string
@@ -44,7 +46,7 @@ interface FileRowProps {
 }
 
 function FileRow({ node, isSelected, onSelect }: FileRowProps) {
-  const { navigateToFolder } = useDataroomStore()
+  const { navigateToFolder, dataroom } = useDataroomStore()
   const { openDialog } = useDialog()
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
@@ -60,6 +62,40 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
   const handlePreview = () => {
     const previewUrl = `/api/files/${node.id}/preview`
     window.open(previewUrl, '_blank')
+  }
+
+  const handleCopyShareLink = async () => {
+    if (!dataroom) return
+
+    try {
+      const response = await fetch('/api/share/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dataroomId: dataroom.id,
+          folderId: node.id,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create share link')
+      }
+
+      const { shareUrl } = await response.json()
+
+      await navigator.clipboard.writeText(shareUrl)
+
+      toast('Share link copied!', {
+        description: `Link for "${node.name}" has been copied to your clipboard`,
+      })
+    } catch (error) {
+      console.error('Error creating share link:', error)
+      toast('Failed to copy share link', {
+        description: 'Please try again or contact support if the problem persists',
+      })
+    }
   }
 
   const formatFileSize = (bytes: number) => {
@@ -135,6 +171,15 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
                 <DropdownMenuItem>
                   <Download className="h-4 w-4 mr-2" />
                   Download
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            {node.type === 'folder' && (
+              <>
+                <DropdownMenuItem onClick={handleCopyShareLink}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Share Link
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>

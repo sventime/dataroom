@@ -23,6 +23,7 @@ import { useDataroomStore } from '@/store/dataroom-store'
 import { ChevronDown, Copy, FolderPen, FolderPlus, FolderX, Home } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
 interface BreadcrumbsProps {
   className?: string
@@ -52,21 +53,32 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
   const canModify = currentFolder?.id !== 'root'
 
   const handleCopyShareLink = async () => {
-    if (!dataroom?.shareToken) return
+    if (!dataroom) return
 
-    const pathSegments = breadcrumbs
-      .slice(1)
-      .map((crumb) => encodeURIComponent(crumb.name))
-
-    const folderPath = pathSegments.length > 0 
-      ? `/${pathSegments.join('/')}`
-      : ''
-
-    const shareUrl = `${window.location.origin}/share/${dataroom.shareToken}${folderPath}`
     try {
+      const response = await fetch('/api/share/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataroomId: dataroom.id,
+          folderId: currentFolderId === 'root' ? null : currentFolderId,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to create share link')
+
+      const { shareUrl } = await response.json()
       await navigator.clipboard.writeText(shareUrl)
+
+      const folderName = currentFolder?.name || 'Data Room'
+      toast('Share link copied!', {
+        description: `Link for "${folderName}" has been copied to your clipboard`,
+      })
     } catch (error) {
       console.error('Failed to copy share link:', error)
+      toast('Failed to copy share link', {
+        description: 'Please try again or contact support if the problem persists',
+      })
     }
   }
 
@@ -193,24 +205,19 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
                           >
                             <FolderPen className="h-4 w-4 mr-2" />
                             Rename
-                            <DropdownMenuShortcut>⇧⌘R</DropdownMenuShortcut>
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuGroup>
-                      {dataroom?.shareToken && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onSelect={handleCopyShareLink}
-                            >
-                              <Copy className="h-4 w-4 mr-2" />
-                              Copy Share Link
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
-                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onSelect={handleCopyShareLink}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy Share Link
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
                       {canModify && (
                         <>
                           <DropdownMenuSeparator />
@@ -227,7 +234,6 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
                             >
                               <FolderX className="h-4 w-4 mr-2 text-destructive" />
                               Delete
-                              <DropdownMenuShortcut>DEL</DropdownMenuShortcut>
                             </DropdownMenuItem>
                           </DropdownMenuGroup>
                         </>

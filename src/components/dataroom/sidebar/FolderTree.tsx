@@ -108,15 +108,17 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
 
     const store = useDataroomStore.getState()
     const {
-      selectedNodeIds,
       selectMultiple,
       navigateToFolder: storeNavigateToFolder,
     } = store
 
     const newSelection = [fileId]
 
-    storeNavigateToFolder(folderId)
+    // First, select the file
     selectMultiple(newSelection)
+    
+    // Then navigate to folder while preserving the selection
+    storeNavigateToFolder(folderId, true)
 
     if (!isOpen) {
       toggleFolderExpansion(folderId)

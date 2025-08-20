@@ -63,6 +63,19 @@ model Dataroom {
   
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   nodes     DataroomNode[]
+  shareLinks ShareLink[]
+}
+
+model ShareLink {
+  id            String   @id @default(cuid())
+  token         String   @unique @default(cuid())
+  dataroomId    String
+  sharedFolderId String?
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime?
+  
+  dataroom      Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
+  sharedFolder  DataroomNode? @relation(fields: [sharedFolderId], references: [id], onDelete: Cascade)
 }
 
 model DataroomNode {
@@ -83,6 +96,7 @@ model DataroomNode {
   dataroom  Dataroom @relation(fields: [dataroomId], references: [id], onDelete: Cascade)
   parent    DataroomNode? @relation("NodeHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children  DataroomNode[] @relation("NodeHierarchy")
+  shareLinks ShareLink[]
   
   @@index([dataroomId, parentId])
 }

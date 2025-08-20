@@ -7,60 +7,59 @@ export async function GET(
 ) {
   const { token } = await params
   const { searchParams } = new URL(request.url)
-  const sharedPath = searchParams.get('path')
+  const navigationPath = searchParams.get('path') || ''
   
   try {
-    const dataroom = await prisma.dataroom.findUnique({
-      where: { shareToken: token },
+    const shareLink = await prisma.shareLink.findUnique({
+      where: { token },
       include: {
-        nodes: {
-          orderBy: [
-            { type: 'asc' },
-            { name: 'asc' }
-          ]
+        dataroom: {
+          include: {
+            nodes: {
+              orderBy: [
+                { type: 'asc' },
+                { name: 'asc' }
+              ]
+            },
+            user: {
+              select: { name: true, email: true }
+            }
+          }
         },
-        user: {
-          select: { name: true, email: true }
-        }
+        sharedFolder: true
       }
     })
 
-    if (!dataroom) {
+    if (!shareLink) {
       return NextResponse.json({ error: 'Share link not found' }, { status: 404 })
     }
 
-    let sharedFolderId: string | null = null
-    let currentFolderId: string | null = null
+    const { dataroom, sharedFolderId } = shareLink
+    let currentFolderId = sharedFolderId
 
-    if (sharedPath) {
-      const pathSegments = sharedPath.split('/').filter(Boolean)
-      let currentFolder: any = null
+    if (navigationPath) {
+      const pathSegments = navigationPath.split('/').filter(Boolean)
+      let currentFolder = shareLink.sharedFolder
       
-      for (let i = 0; i < pathSegments.length; i++) {
-        const decodedSegment = decodeURIComponent(pathSegments[i])
-        const parentId = i === 0 ? null : currentFolder?.id
-        
+      for (const segment of pathSegments) {
+        const decodedSegment = decodeURIComponent(segment)
         const nextFolder = dataroom.nodes.find(
-          node => node.parentId === parentId && 
+          node => node.parentId === currentFolder?.id && 
                   node.type === 'FOLDER' && 
                   node.name === decodedSegment
         )
         
         if (!nextFolder) {
-          return NextResponse.json({ error: 'Shared folder not found' }, { status: 404 })
+          return NextResponse.json({ error: 'Folder not found' }, { status: 404 })
         }
         currentFolder = nextFolder
       }
       
-      sharedFolderId = currentFolder?.id || null
-      currentFolderId = sharedFolderId
-    } else {
-      sharedFolderId = null
-      currentFolderId = null
+      currentFolderId = currentFolder?.id || sharedFolderId
     }
 
     const accessibleNodes = dataroom.nodes.filter(node => {
-      if (sharedFolderId === null) return node.parentId === null
+      if (!sharedFolderId) return true
       
       if (node.id === sharedFolderId) return true
       
@@ -77,7 +76,6 @@ export async function GET(
       dataroom: {
         id: dataroom.id,
         name: dataroom.name,
-        shareToken: dataroom.shareToken,
         nodes: accessibleNodes,
         owner: dataroom.user
       },

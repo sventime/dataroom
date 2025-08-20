@@ -1,38 +1,32 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { useLoader } from '@/contexts/loader-context'
 import { useDataroomStore } from '@/store/dataroom-store'
-import { HarveyLoader } from '@/components/ui/harvey-loader'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function DataroomRedirectPage() {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
-  const { loadDataroom, dataroom, isLoading } = useDataroomStore()
+  const { loadDataroom, dataroom } = useDataroomStore()
+  const { showLoader, setMessage } = useLoader()
 
   useEffect(() => {
     if (status === 'authenticated') {
-      const redirectToDataroom = async () => {
-        await loadDataroom()
-        // Redirect to the new URL structure once dataroom is loaded
-      }
-      redirectToDataroom()
+      setMessage('Loading your dataroom...')
+      showLoader()
+      loadDataroom()
     } else if (status === 'unauthenticated') {
       router.push('/auth/signin')
     }
-  }, [status, loadDataroom])
+  }, [status, loadDataroom, router, showLoader, setMessage])
 
   useEffect(() => {
     if (dataroom) {
-      // Redirect to the new dataroom structure
       router.replace(`/dataroom/${dataroom.id}`)
     }
   }, [dataroom, router])
-
-  if (status === 'loading' || isLoading) {
-    return <HarveyLoader message="Loading your dataroom..." />
-  }
 
   if (status === 'unauthenticated') {
     return (

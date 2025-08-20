@@ -28,7 +28,7 @@ interface DataroomActions {
   loadDataroomById: (dataroomId: string) => Promise<void>
   processDataroomData: (dataroom: ApiDataroom) => void
   
-  navigateToFolder: (folderId: string) => void
+  navigateToFolder: (folderId: string, preserveSelection?: boolean) => void
   navigateToPath: (pathSegments: string[]) => void
   
   createFolder: (name: string, parentId?: string) => Promise<{ conflicts?: any[] }>
@@ -46,6 +46,7 @@ interface DataroomActions {
   toggleFolderExpansion: (folderId: string) => void
   setFolderExpanded: (folderId: string, expanded: boolean) => void
   isFolderExpanded: (folderId: string) => boolean
+  expandPathToFolder: (folderId: string) => void
   
   getChildNodes: (parentId: string | null) => DataroomNode[]
   getNodePath: (nodeId: string) => Breadcrumb[]
@@ -177,8 +178,8 @@ export const useDataroomStore = create<DataroomStore>()(
       },
 
       // Navigation
-      navigateToFolder: (folderId: string) => {
-        const { nodes } = get()
+      navigateToFolder: (folderId: string, preserveSelection = false) => {
+        const { nodes, selectedNodeIds } = get()
         const folder = nodes[folderId]
         
         if (!folder || folder.type !== 'folder') {
@@ -187,10 +188,13 @@ export const useDataroomStore = create<DataroomStore>()(
 
         const breadcrumbs = get().getNodePath(folderId)
         
+        // Expand the path to this folder in the sidebar
+        get().expandPathToFolder(folderId)
+        
         set({
           currentFolderId: folderId,
           breadcrumbs,
-          selectedNodeIds: [],
+          selectedNodeIds: preserveSelection ? selectedNodeIds : [],
           error: null
         })
       },
@@ -381,17 +385,40 @@ export const useDataroomStore = create<DataroomStore>()(
         return expandedFolders[folderId] || false
       },
 
+      expandPathToFolder: (folderId: string) => {
+        const { nodes, expandedFolders } = get()
+        const newExpandedFolders = { ...expandedFolders }
+        
+        // Expand all parent folders leading to this folder
+        let current = nodes[folderId]
+        while (current && current.parentId) {
+          const parent = nodes[current.parentId]
+          if (parent && parent.type === 'folder') {
+            newExpandedFolders[parent.id] = true
+          }
+          current = parent
+        }
+        
+        // Also expand the target folder itself if it's a folder
+        if (nodes[folderId]?.type === 'folder') {
+          newExpandedFolders[folderId] = true
+        }
+        
+        set({ expandedFolders: newExpandedFolders })
+      },
+
       // Utility
       getChildNodes: (parentId: string | null) => {
         const { nodes } = get()
         return Object.values(nodes)
           .filter(node => node.parentId === parentId)
           .sort((a, b) => {
-            // Folders first, then files, both alphabetically
+            // Folders first, then files
             if (a.type !== b.type) {
               return a.type === 'folder' ? -1 : 1
             }
-            return a.name.localeCompare(b.name)
+            // Then sort by modified date, oldest first
+            return a.updatedAt.getTime() - b.updatedAt.getTime()
           })
       },
 

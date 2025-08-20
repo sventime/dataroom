@@ -46,10 +46,12 @@ export function Search() {
     if (!node) return
 
     if (node.type === 'folder') {
+      // Navigate to folder (will auto-expand path)
       navigateToFolder(nodeId)
     } else {
       // For files, navigate to parent folder and select the file
       if (node.parentId) {
+        // Navigate to parent folder (will auto-expand path) and select the file
         navigateToFolder(node.parentId)
         selectNode(nodeId)
       }
@@ -62,6 +64,37 @@ export function Search() {
   const searchResultNodes = searchResults.map((id) => nodes[id]).filter(Boolean)
   const folders = searchResultNodes.filter((node) => node.type === 'folder')
   const files = searchResultNodes.filter((node) => node.type === 'file')
+
+  const getNodePath = (nodeId: string): string[] => {
+    const path: string[] = []
+    let current = nodes[nodeId]
+
+    while (current && current.parentId !== null) {
+      if (current.parentId === 'root') break
+      current = nodes[current.parentId]
+      if (current) {
+        path.unshift(current.name)
+      }
+    }
+
+    return path
+  }
+
+  const truncateName = (name: string, maxLength = 25) => {
+    return name.length > maxLength ? `${name.substring(0, maxLength)}...` : name
+  }
+
+  const truncatePath = (pathArray: string[]): string => {
+    if (pathArray.length === 0) return 'Data Room'
+    if (pathArray.length <= 3) {
+      return pathArray.join(' / ')
+    }
+
+    // Show first folder + ... + last two folders
+    const first = pathArray[0]
+    const lastTwo = pathArray.slice(-2)
+    return `${first} / ... / ${lastTwo.join(' / ')}`
+  }
 
   return (
     <>
@@ -86,24 +119,27 @@ export function Search() {
           onValueChange={handleSearch}
         />
         <CommandList>
-          <CommandEmpty>No files or folders found.</CommandEmpty>
+          <CommandEmpty>Start typing to search for file or folder.</CommandEmpty>
 
           {folders.length > 0 && (
             <>
               <CommandGroup heading="Folders">
-                {folders.map((folder) => (
-                  <CommandItem
-                    key={folder.id}
-                    onSelect={() => handleSelectItem(folder.id)}
-                    className="flex items-center gap-2"
-                  >
-                    <Folder className="h-4 w-4 " />
-                    <span>{folder.name}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      {folder.parentId === null ? 'Data Room' : 'Folder'}
-                    </span>
-                  </CommandItem>
-                ))}
+                {folders.map((folder) => {
+                  const folderPath = getNodePath(folder.id)
+                  return (
+                    <CommandItem
+                      key={folder.id}
+                      onSelect={() => handleSelectItem(folder.id)}
+                      className="flex items-center gap-2"
+                    >
+                      <Folder className="h-4 w-4 " />
+                      <span>{truncateName(folder.name)}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {truncatePath(folderPath)}
+                      </span>
+                    </CommandItem>
+                  )
+                })}
               </CommandGroup>
             </>
           )}
@@ -112,25 +148,28 @@ export function Search() {
             <>
               {folders.length > 0 && <CommandSeparator />}
               <CommandGroup heading="Files">
-                {files.map((file) => (
-                  <CommandItem
-                    key={file.id}
-                    onSelect={() => handleSelectItem(file.id)}
-                    className="flex items-center gap-2"
-                  >
-                    {file.mimeType?.includes('pdf') ? (
-                      <FileText className="h-4 w-4 text-red-500" />
-                    ) : file.mimeType?.includes('image') ? (
-                      <File className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <File className="h-4 w-4 text-gray-500" />
-                    )}
-                    <span>{file.name}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      {file.mimeType || 'Unknown'}
-                    </span>
-                  </CommandItem>
-                ))}
+                {files.map((file) => {
+                  const filePath = getNodePath(file.id)
+                  return (
+                    <CommandItem
+                      key={file.id}
+                      onSelect={() => handleSelectItem(file.id)}
+                      className="flex items-center gap-2"
+                    >
+                      {file.mimeType?.includes('pdf') ? (
+                        <FileText className="h-4 w-4 text-red-500" />
+                      ) : file.mimeType?.includes('image') ? (
+                        <File className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <File className="h-4 w-4 text-gray-500" />
+                      )}
+                      <span>{truncateName(file.name)}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {truncatePath(filePath)}
+                      </span>
+                    </CommandItem>
+                  )
+                })}
               </CommandGroup>
             </>
           )}

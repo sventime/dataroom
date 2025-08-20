@@ -16,7 +16,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { HarveyLoader } from '@/components/ui/harvey-loader'
 import {
   Table,
   TableBody,
@@ -25,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { HarveyLoader } from '@/components/ui/harvey-loader'
 import {
   ChevronRight,
   Download,
@@ -33,80 +33,84 @@ import {
   File,
   Folder,
   MoreHorizontal,
-  Share,
   User,
 } from 'lucide-react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useSharedDataroomStore } from '@/store/shared-dataroom-store'
 
-interface DataroomNode {
-  id: string
-  name: string
-  type: 'FOLDER' | 'FILE'
-  parentId: string | null
-  mimeType?: string
-  size?: number
-  createdAt: string
-  updatedAt: string
-}
-
-interface SharedDataroom {
-  id: string
-  name: string
-  shareToken: string
-  nodes: DataroomNode[]
-  owner: {
-    name: string
-    email: string
-  }
-  sharedFolderId?: string
-}
 
 export default function SharedDataroomPathPage() {
   const params = useParams()
+  const router = useRouter()
   const token = params.token as string
   const path = (params.path as string[]) || []
 
-  const [dataroom, setDataroom] = useState<SharedDataroom | null>(null)
-  const [loading, setLoading] = useState(true)
+  const {
+    dataroom,
+    currentFolderId,
+    sharedRootId,
+    isInitialized,
+    isLoading,
+    error,
+    loadSharedDataroom,
+    navigateToFolder,
+    navigateToPath,
+    getCurrentFolderNodes,
+    getBreadcrumbs,
+    buildPathFromFolderId,
+    isDescendantOfSharedRoot,
+  } = useSharedDataroomStore()
+
   const [animatingOut, setAnimatingOut] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
-  const [sharedRootId, setSharedRootId] = useState<string | null>(null)
+  const [showLoader, setShowLoader] = useState(false)
 
+  // Load everything once on mount
   useEffect(() => {
-    const fetchDataroom = async () => {
-      try {
-        const pathQuery = path.length > 0 ? `?path=${path.join('/')}` : ''
-        const response = await fetch(`/api/share/${token}${pathQuery}`)
-        if (!response.ok) {
-          throw new Error('Failed to fetch dataroom')
-        }
-        const data = await response.json()
-        setDataroom(data.dataroom)
-        setSharedRootId(data.sharedFolderId || null)
-        setCurrentFolderId(data.currentFolderId || data.sharedFolderId || null)
-        
-        // Add 1 second delay to show loading state
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
-        // Start fade-out animation
-        setAnimatingOut(true)
-        await new Promise(resolve => setTimeout(resolve, 300)) // Animation duration
-      } catch (error) {
-        setError('This share link is invalid or has expired.')
-        setAnimatingOut(true)
-        await new Promise(resolve => setTimeout(resolve, 300))
-      } finally {
-        setLoading(false)
-        setAnimatingOut(false)
-      }
+    if (!token) return
+    if (!isInitialized) {
+      setShowLoader(true)
+      loadSharedDataroom(token)
     }
+  }, [token, isInitialized, loadSharedDataroom])
 
-    if (token) {
-      fetchDataroom()
+  // Handle animate out when loading completes
+  useEffect(() => {
+    if (dataroom && isInitialized && !animatingOut && !isLoading) {
+      console.log('Starting animation out...')
+      const timer = setTimeout(() => {
+        setAnimatingOut(true)
+        setTimeout(() => {
+          console.log('Hiding loader')
+          setShowLoader(false)
+        }, 300)
+      }, 500)
+
+      return () => clearTimeout(timer)
     }
-  }, [token, path])
+  }, [dataroom, isInitialized, isLoading, animatingOut])
+
+  // Navigate to initial path after data is loaded
+  useEffect(() => {
+    if (!isInitialized || !dataroom) return
+    
+    if (path.length > 0) {
+      navigateToPath(path, sharedRootId)
+    } else {
+      navigateToFolder(sharedRootId)
+    }
+  }, [isInitialized, dataroom, path.join('/'), sharedRootId, navigateToPath, navigateToFolder])
+
+  // Handle URL navigation changes (back/forward)
+  useEffect(() => {
+    if (!isInitialized || !dataroom) return
+
+    if (path.length > 0) {
+      navigateToPath(path, sharedRootId)
+    } else {
+      navigateToFolder(sharedRootId)
+    }
+  }, [path.join('/'), isInitialized, dataroom, sharedRootId, navigateToPath, navigateToFolder])
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B'
@@ -128,53 +132,19 @@ export default function SharedDataroomPathPage() {
     )
   }
 
-  const getCurrentFolderNodes = () => {
-    if (!dataroom) return []
-    return dataroom.nodes.filter((node) => node.parentId === currentFolderId)
-  }
 
-  const isDescendantOfSharedRoot = (folderId: string | null): boolean => {
-    if (!dataroom || !sharedRootId) return folderId === null
-    if (folderId === sharedRootId) return true
-    if (folderId === null) return sharedRootId === null
-
-    let current = dataroom.nodes.find((n) => n.id === folderId)
-    while (current) {
-      if (current.id === sharedRootId) return true
-      current = current.parentId
-        ? dataroom.nodes.find((n) => n.id === current!.parentId)
-        : null
-    }
-    return false
-  }
-
-  const getBreadcrumbs = () => {
-    if (!dataroom || !sharedRootId) return [{ id: sharedRootId, name: 'Shared Folder' }]
-
-    const breadcrumbs = []
-    let current = dataroom.nodes.find((n) => n.id === currentFolderId)
-
-    while (current && current.id !== sharedRootId) {
-      breadcrumbs.unshift({ id: current.id, name: current.name })
-      current = current.parentId
-        ? dataroom.nodes.find((n) => n.id === current!.parentId)
-        : null
-    }
-
-    const sharedFolder = dataroom.nodes.find((n) => n.id === sharedRootId)
-    breadcrumbs.unshift({
-      id: sharedRootId,
-      name: sharedFolder?.name || 'Shared Folder',
-    })
-
-    return breadcrumbs
-  }
 
   const handleFolderNavigation = (folderId: string | null) => {
-    if (!isDescendantOfSharedRoot(folderId) && folderId !== sharedRootId) {
+    if (!isDescendantOfSharedRoot(folderId, sharedRootId) && folderId !== sharedRootId) {
       return
     }
-    setCurrentFolderId(folderId)
+
+    navigateToFolder(folderId)
+    const newPath = buildPathFromFolderId(folderId, sharedRootId)
+    const newUrl =
+      newPath.length > 0 ? `/share/${token}/${newPath.join('/')}` : `/share/${token}`
+
+    router.push(newUrl)
   }
 
   const handlePreview = (fileId: string) => {
@@ -187,7 +157,10 @@ export default function SharedDataroomPathPage() {
     window.open(downloadUrl)
   }
 
-  const showLoading = loading || animatingOut
+  const showLoading = showLoader
+  
+  // Debug logs
+  console.log('States:', { dataroom: !!dataroom, isInitialized, isLoading, animatingOut, showLoader })
 
   if (error) {
     return (
@@ -200,21 +173,14 @@ export default function SharedDataroomPathPage() {
     )
   }
 
-  if (!dataroom && !showLoading && !error) {
-    return null
-  }
-
-  const nodes = getCurrentFolderNodes()
-  const breadcrumbs = getBreadcrumbs()
-
   return (
     <div className="min-h-screen bg-background relative">
       {showLoading && (
-        <div 
+        <div
           className={`fixed inset-0 z-50 bg-background flex items-center justify-center ${
-            animatingOut 
-              ? 'animate-out fade-out-0 zoom-out-95 duration-300' 
-              : 'animate-in fade-in-0 zoom-in-95'
+            animatingOut
+              ? 'animate-out fade-out-0 zoom-out-95 duration-300'
+              : 'animate-in fade-in-0 zoom-in-98'
           }`}
         >
           <HarveyLoader message="Loading shared dataroom..." />
@@ -222,17 +188,16 @@ export default function SharedDataroomPathPage() {
       )}
       {dataroom && (
         <>
-      <header className="border-b bg-card">
+          <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Share className="h-6 w-6" />
-                {dataroom.name}
+                Harvey: Data Room
               </h1>
               <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
                 <User className="h-4 w-4" />
-                Shared by {dataroom.owner.name || dataroom.owner.email}
+                Shared by {dataroom?.owner.name || dataroom?.owner.email}
               </p>
             </div>
             <Badge variant="secondary" className="flex items-center gap-2">
@@ -246,11 +211,11 @@ export default function SharedDataroomPathPage() {
       <main className="container mx-auto px-4 py-6">
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
-            {breadcrumbs.map((crumb, index) => (
+            {getBreadcrumbs().map((crumb, index) => (
               <div key={crumb.id || 'shared-root'} className="flex items-center">
                 {index > 0 && <BreadcrumbSeparator />}
                 <BreadcrumbItem>
-                  {index === breadcrumbs.length - 1 ? (
+                  {index === getBreadcrumbs().length - 1 ? (
                     <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink
@@ -280,7 +245,7 @@ export default function SharedDataroomPathPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {nodes.length === 0 ? (
+              {getCurrentFolderNodes().length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={4}
@@ -290,7 +255,7 @@ export default function SharedDataroomPathPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                nodes.map((node) => (
+                getCurrentFolderNodes().map((node) => (
                   <TableRow
                     key={node.id}
                     className="cursor-pointer hover:bg-accent/50"

@@ -55,6 +55,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         {/* Quick Actions */}
         <SidebarGroup>
+          <h1 className="text-2xl font-bold flex items-center gap-2 py-2 px-2">
+            Harvey: Data Room
+          </h1>
           <SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
           <SidebarGroupContent>
             <div className="space-y-2 px-2">
