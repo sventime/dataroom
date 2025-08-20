@@ -4,36 +4,103 @@ import SignOutButton from '@/components/auth/sign-out-button'
 import { Search } from '@/components/dataroom/search'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { FileTable } from '@/components/dataroom/content/FileTable'
-import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
-import { RenameDialog } from '@/components/dataroom/dialogs/RenameDialog'
-import { DeleteConfirmDialog } from '@/components/dataroom/dialogs/DeleteConfirmDialog'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
-import { Button } from '@/components/ui/button'
+import { Breadcrumbs } from '@/components/dataroom/breadcrumbs/Breadcrumbs'
+import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
-import { ChevronDown, FolderPen, FolderPlus, FolderX, Home } from 'lucide-react'
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 
 import { useDataroomStore } from '@/store/dataroom-store'
+import { useState, useEffect } from 'react'
+import { Upload } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 
 export default function DataroomPage() {
-  const { breadcrumbs, navigateToFolder, currentFolderId } = useDataroomStore()
+  const { data: session, status } = useSession()
+  const {
+    breadcrumbs,
+    navigateToFolder,
+    currentFolderId,
+    uploadFile,
+    initializeWithUser,
+  } = useDataroomStore()
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [dragCounter, setDragCounter] = useState(0)
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // Initialize dataroom with user's name
+  useEffect(() => {
+    if (status === 'loading') return // Still loading session
+
+    if (!isInitialized) {
+      if (session?.user) {
+        // Create personalized root folder name using email only
+        const rootFolderName = session.user.email
+          ? `Data Room (${session.user.email})`
+          : 'Data Room'
+        initializeWithUser(rootFolderName)
+      } else {
+        // No session, initialize with default name
+        initializeWithUser()
+      }
+      setIsInitialized(true)
+    }
+  }, [session, status, initializeWithUser, isInitialized])
+
+  // Add comprehensive drag event listeners
+  useEffect(() => {
+    const handleWindowDragEnter = (e: DragEvent) => {
+      e.preventDefault()
+      if (e.dataTransfer?.types.includes('Files')) {
+        setDragCounter((prev) => prev + 1)
+        setIsDragOver(true)
+      }
+    }
+
+    const handleWindowDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      setDragCounter((prev) => {
+        const newCount = prev - 1
+        if (newCount <= 0) {
+          setIsDragOver(false)
+          return 0
+        }
+        return newCount
+      })
+    }
+
+    const handleWindowDragOver = (e: DragEvent) => {
+      e.preventDefault()
+    }
+
+    const handleWindowDrop = (e: DragEvent) => {
+      // Only prevent default if the drop is outside our main content area
+      const mainContent = document.querySelector('[data-drop-zone="true"]')
+      if (!mainContent || !mainContent.contains(e.target as Node)) {
+        e.preventDefault()
+      }
+      setIsDragOver(false)
+      setDragCounter(0)
+    }
+
+    const handleWindowDragEnd = () => {
+      setIsDragOver(false)
+      setDragCounter(0)
+    }
+
+    window.addEventListener('dragenter', handleWindowDragEnter)
+    window.addEventListener('dragleave', handleWindowDragLeave)
+    window.addEventListener('dragover', handleWindowDragOver)
+    window.addEventListener('drop', handleWindowDrop)
+    window.addEventListener('dragend', handleWindowDragEnd)
+
+    return () => {
+      window.removeEventListener('dragenter', handleWindowDragEnter)
+      window.removeEventListener('dragleave', handleWindowDragLeave)
+      window.removeEventListener('dragover', handleWindowDragOver)
+      window.removeEventListener('drop', handleWindowDrop)
+      window.removeEventListener('dragend', handleWindowDragEnd)
+    }
+  }, [])
 
   const handleDeleteComplete = () => {
     // Navigate to parent after deletion
@@ -43,8 +110,18 @@ export default function DataroomPage() {
     }
   }
 
-  const currentFolder = breadcrumbs[breadcrumbs.length - 1]
-  const canModify = currentFolder?.id !== 'root'
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    setDragCounter(0)
+
+    const files = Array.from(e.dataTransfer.files)
+    files.forEach((file) => {
+      uploadFile(file, currentFolderId)
+    })
+  }
+
 
   return (
     <SidebarProvider
@@ -62,91 +139,7 @@ export default function DataroomPage() {
               orientation="vertical"
               className="mr-2 data-[orientation=vertical]:h-4"
             />
-            <Breadcrumb>
-              <BreadcrumbList>
-                {breadcrumbs.map((breadcrumb, index) => (
-                  <div key={breadcrumb.id} className="flex items-center">
-                    {index > 0 && <BreadcrumbSeparator className="hidden md:block" />}
-
-                    {index === breadcrumbs.length - 1 ? (
-                      <BreadcrumbItem>
-                        <BreadcrumbPage className="hover:bg-muted-foreground/30 px-3 py-2 rounded-md transition cursor-pointer">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <div className="flex gap-1 items-center">
-                                {index === 0 ? <Home className="h-4 w-4 mr-1" /> : null}
-                                {breadcrumb.name}
-                                <ChevronDown className="h-4 w-4" />
-                              </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-56 mt-2" align="start">
-                              <DropdownMenuGroup>
-                                <CreateFolderDialog parentId={currentFolderId}>
-                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                    <FolderPlus className="h-4 w-4 mr-2" />
-                                    New Folder
-                                    <DropdownMenuShortcut>⇧⌘N</DropdownMenuShortcut>
-                                  </DropdownMenuItem>
-                                </CreateFolderDialog>
-                                {canModify && (
-                                  <RenameDialog
-                                    nodeId={currentFolder.id}
-                                    currentName={currentFolder.name}
-                                  >
-                                    <DropdownMenuItem
-                                      onSelect={(e) => e.preventDefault()}
-                                    >
-                                      <FolderPen className="h-4 w-4 mr-2" />
-                                      Rename
-                                      <DropdownMenuShortcut>⇧⌘R</DropdownMenuShortcut>
-                                    </DropdownMenuItem>
-                                  </RenameDialog>
-                                )}
-                              </DropdownMenuGroup>
-                              {canModify && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuGroup>
-                                    <DeleteConfirmDialog
-                                      nodeId={currentFolder.id}
-                                      nodeName={currentFolder.name}
-                                      onConfirm={handleDeleteComplete}
-                                    >
-                                      <DropdownMenuItem
-                                        onSelect={(e) => e.preventDefault()}
-                                        className="text-destructive focus:text-destructive"
-                                      >
-                                        <FolderX className="h-4 w-4 mr-2" />
-                                        Delete
-                                        <DropdownMenuShortcut>DEL</DropdownMenuShortcut>
-                                      </DropdownMenuItem>
-                                    </DeleteConfirmDialog>
-                                  </DropdownMenuGroup>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </BreadcrumbPage>
-                      </BreadcrumbItem>
-                    ) : (
-                      <BreadcrumbItem className="hidden md:block">
-                        <BreadcrumbLink
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            navigateToFolder(breadcrumb.id)
-                          }}
-                          className="flex items-center"
-                        >
-                          {index === 0 && <Home className="h-4 w-4 mr-1" />}
-                          {breadcrumb.name}
-                        </BreadcrumbLink>
-                      </BreadcrumbItem>
-                    )}
-                  </div>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
+            <Breadcrumbs onDeleteComplete={handleDeleteComplete} />
           </div>
           <div className="flex items-center gap-4">
             <Search />
@@ -154,8 +147,30 @@ export default function DataroomPage() {
           </div>
         </header>
 
-        <div className="flex-1 p-4 overflow-auto">
+        <div
+          className={`flex-1 p-4 overflow-auto relative transition-all duration-200 rounded-md ${
+            isDragOver
+              ? 'bg-accent/20 border-2 border-dashed border-muted-foreground'
+              : ''
+          }`}
+          data-drop-zone="true"
+          onDrop={handleDrop}
+        >
+          {isDragOver && (
+            <div className="absolute inset-0 flex items-center justify-center bg-accent/50 rounded-lg z-50 pointer-events-none animate-in fade-in-0 duration-200">
+              <Card className="shadow-xl animate-in zoom-in-95 duration-200">
+                <CardContent className="p-8 text-center">
+                  <Upload className="h-10 w-10 mx-auto mb-4 text-primary" />
+                  <p className="font-semibold mb-2">Release to upload files</p>
+                  <p className="text-sm text-muted-foreground">
+                    Files will be uploaded to the current folder
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           <FileTable />
+          
         </div>
       </SidebarInset>
     </SidebarProvider>

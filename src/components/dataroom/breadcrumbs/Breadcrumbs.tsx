@@ -1,55 +1,46 @@
 'use client'
 
-import { ChevronRight, Home, MoreHorizontal } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useState } from 'react'
+import { ChevronDown, FolderPen, FolderPlus, FolderX, Home } from 'lucide-react'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
+import { RenameDialog } from '@/components/dataroom/dialogs/RenameDialog'
+import { DeleteConfirmDialog } from '@/components/dataroom/dialogs/DeleteConfirmDialog'
 import { useDataroomStore } from '@/store/dataroom-store'
-import type { Breadcrumb } from '@/types/dataroom'
 
 interface BreadcrumbsProps {
   className?: string
+  onDeleteComplete?: () => void
 }
 
-export function Breadcrumbs({ className }: BreadcrumbsProps) {
-  const { breadcrumbs, navigateToFolder, createFolder, currentFolderId } = useDataroomStore()
+export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
+  const { breadcrumbs, navigateToFolder, currentFolderId } = useDataroomStore()
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  const handleNavigate = (breadcrumb: Breadcrumb) => {
-    navigateToFolder(breadcrumb.id)
-  }
-
-  const handleCreateFolder = () => {
-    const name = prompt('Enter folder name:')
-    if (name?.trim()) {
-      createFolder(name.trim(), currentFolderId)
-    }
-  }
-
-  const handleRename = () => {
-    const currentFolder = breadcrumbs[breadcrumbs.length - 1]
-    if (currentFolder && currentFolder.id !== 'root') {
-      const newName = prompt('Enter new name:', currentFolder.name)
-      if (newName?.trim() && newName !== currentFolder.name) {
-        useDataroomStore.getState().renameNode(currentFolder.id, newName.trim())
-      }
-    }
-  }
-
-  const handleDelete = () => {
-    const currentFolder = breadcrumbs[breadcrumbs.length - 1]
-    if (currentFolder && currentFolder.id !== 'root') {
-      if (confirm(`Are you sure you want to delete "${currentFolder.name}"?`)) {
-        useDataroomStore.getState().deleteNode(currentFolder.id)
-        // Navigate to parent after deletion
-        if (breadcrumbs.length > 1) {
-          const parent = breadcrumbs[breadcrumbs.length - 2]
-          navigateToFolder(parent.id)
-        }
+  const handleDeleteComplete = () => {
+    if (onDeleteComplete) {
+      onDeleteComplete()
+    } else {
+      // Navigate to parent after deletion
+      if (breadcrumbs.length > 1) {
+        const parent = breadcrumbs[breadcrumbs.length - 2]
+        navigateToFolder(parent.id)
       }
     }
   }
@@ -58,57 +49,94 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
   const canModify = currentFolder?.id !== 'root'
 
   return (
-    <div className={`flex items-center space-x-1 ${className}`}>
-      {/* Breadcrumb Navigation */}
-      <div className="flex items-center space-x-1 flex-1">
+    <Breadcrumb className={className}>
+      <BreadcrumbList>
         {breadcrumbs.map((breadcrumb, index) => (
-          <div key={breadcrumb.id} className="flex items-center space-x-1">
-            {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-            
-            <Button
-              variant={index === breadcrumbs.length - 1 ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => handleNavigate(breadcrumb)}
-              className="h-8 px-2"
-            >
-              {index === 0 ? (
-                <Home className="h-4 w-4" />
-              ) : (
-                breadcrumb.name
-              )}
-            </Button>
+          <div key={breadcrumb.id} className="flex items-center">
+            {index > 0 && <BreadcrumbSeparator className="hidden md:block" />}
+
+            {index === breadcrumbs.length - 1 ? (
+              <BreadcrumbItem>
+                <BreadcrumbPage className="hover:bg-muted-foreground/30 px-3 py-2 rounded-md transition cursor-pointer">
+                  <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+                    <DropdownMenuTrigger asChild>
+                      <div className="flex gap-1 items-center">
+                        {index === 0 ? <Home className="h-4 w-4 mr-1" /> : null}
+                        {breadcrumb.name}
+                        <ChevronDown className="h-4 w-4" />
+                      </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56 mt-2" align="end">
+                      <DropdownMenuGroup>
+                        <CreateFolderDialog parentId={currentFolderId}>
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            <FolderPlus className="h-4 w-4 mr-2" />
+                            New Folder
+                            <DropdownMenuShortcut>⌘/</DropdownMenuShortcut>
+                          </DropdownMenuItem>
+                        </CreateFolderDialog>
+                        {canModify && (
+                          <RenameDialog
+                            nodeId={currentFolder.id}
+                            currentName={currentFolder.name}
+                          >
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onSelect={(e) => e.preventDefault()}
+                            >
+                              <FolderPen className="h-4 w-4 mr-2" />
+                              Rename
+                              <DropdownMenuShortcut>⇧⌘R</DropdownMenuShortcut>
+                            </DropdownMenuItem>
+                          </RenameDialog>
+                        )}
+                      </DropdownMenuGroup>
+                      {canModify && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            <DeleteConfirmDialog
+                              nodeId={currentFolder.id}
+                              nodeName={currentFolder.name}
+                              onConfirm={handleDeleteComplete}
+                            >
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                                className="text-destructive focus:text-destructive cursor-pointer"
+                              >
+                                <FolderX className="h-4 w-4 mr-2 text-destructive" />
+                                Delete
+                                <DropdownMenuShortcut>DEL</DropdownMenuShortcut>
+                              </DropdownMenuItem>
+                            </DeleteConfirmDialog>
+                          </DropdownMenuGroup>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            ) : (
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navigateToFolder(breadcrumb.id)
+                  }}
+                  className="flex items-center"
+                >
+                  {index === 0 && <Home className="h-4 w-4 mr-1" />}
+                  {breadcrumb.name}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+            )}
           </div>
         ))}
-      </div>
-
-      {/* Actions Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handleCreateFolder}>
-            New Folder
-          </DropdownMenuItem>
-          
-          {canModify && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleRename}>
-                Rename
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={handleDelete}
-                className="text-destructive focus:text-destructive"
-              >
-                Delete
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+      </BreadcrumbList>
+    </Breadcrumb>
   )
 }

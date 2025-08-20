@@ -4,11 +4,11 @@ import { nanoid } from 'nanoid'
 import type { DataroomStore, DataroomNode, Folder, File, Breadcrumb } from '@/types/dataroom'
 
 // Initial state factory
-const createInitialState = () => {
+const createInitialState = (rootFolderName = 'Data Room') => {
   const rootFolderId = 'root'
   const rootFolder: Folder = {
     id: rootFolderId,
-    name: 'Data Room',
+    name: rootFolderName,
     type: 'folder',
     children: [],
     parentId: null,
@@ -20,7 +20,7 @@ const createInitialState = () => {
     nodes: { [rootFolderId]: rootFolder },
     rootFolderId,
     currentFolderId: rootFolderId,
-    breadcrumbs: [{ id: rootFolderId, name: 'Data Room', path: '/' }],
+    breadcrumbs: [{ id: rootFolderId, name: rootFolderName, path: '/' }],
     selectedNodeIds: [],
     isLoading: false,
     error: null,
@@ -330,6 +330,11 @@ export const useDataroomStore = create<DataroomStore>()(
             }
             return a.name.localeCompare(b.name)
           })
+      },
+
+      // Initialize with custom root folder name
+      initializeWithUser: (rootFolderName?: string) => {
+        set(createInitialState(rootFolderName || 'Data Room'))
       },
 
       reset: () => {

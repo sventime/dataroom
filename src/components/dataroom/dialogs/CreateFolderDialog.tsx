@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FolderPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,13 +44,28 @@ export function CreateFolderDialog({ children, parentId }: CreateFolderDialogPro
     }
   }
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === '/') {
+        e.preventDefault()
+        setOpen(true)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {children || (
           <Button variant="outline" size="sm" className="w-full justify-start">
             <FolderPlus className="h-4 w-4 mr-2" />
-            New Folder
+            <div className="flex justify-between items-center flex-1">
+              New Folder{' '}
+              <span className="text-muted-foreground text-xs tracking-widest">⌘/</span>
+            </div>
           </Button>
         )}
       </DialogTrigger>

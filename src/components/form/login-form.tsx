@@ -48,7 +48,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Welcome back</CardTitle>
-          <CardDescription>Login with your Google account</CardDescription>
+          <CardDescription>Access Data Room with your Google account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit}>
@@ -58,7 +58,12 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
                   variant="outline"
                   className="w-full"
                   type="button"
-                  onClick={() => signIn('google', { callbackUrl: '/dataroom' })}
+                  onClick={() =>
+                    signIn('google', {
+                      callbackUrl: '/dataroom',
+                      prompt: 'select_account',
+                    })
+                  }
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                     <path

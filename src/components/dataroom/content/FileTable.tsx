@@ -141,7 +141,7 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
                 onSelect={(e) => e.preventDefault()}
                 className="text-destructive focus:text-destructive"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="h-4 w-4 mr-2 text-destructive" />
                 Delete
               </DropdownMenuItem>
             </DeleteConfirmDialog>
@@ -190,9 +190,9 @@ export function FileTable({ className }: FileTableProps) {
   if (nodes.length === 0) {
     return (
       <div
-        className={`flex flex-col flex-1 h-full items-center justify-center py-12 text-muted-foreground ${className}`}
+        className={`flex flex-col flex-1 h-full items-center justify-center py-12 text-muted-foreground pt-10 ${className}`}
       >
-        <Upload className="h-10 w-10  mb-4" />
+        <Upload className="h-10 w-10 mb-4" />
         <p className="mb-4">Drop PDF files here</p>
       </div>
     )

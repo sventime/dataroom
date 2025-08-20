@@ -172,4 +172,9 @@ h6 {
 
 [data-sidebar="menu-sub"]{
   margin-right: 0 !important;
+  padding-right: 0 !important;
+}
+
+[role="menuitem"] {
+  cursor: pointer
 }

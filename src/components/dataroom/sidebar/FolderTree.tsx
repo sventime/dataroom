@@ -84,20 +84,20 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
         onOpenChange={setIsOpen}
         className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
       >
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton
-            isActive={isActive}
-            onClick={handleNavigate}
-            className="data-[active=true]:bg-accent"
-          >
-            <ChevronRight className="transition-transform" />
-            {isOpen ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
-            {folder.name}
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
+        <SidebarMenuButton
+          isActive={isActive}
+          onClick={handleNavigate}
+          className="data-[active=true]:bg-accent cursor-pointer"
+        >
+          <CollapsibleTrigger asChild onClick={(e) => e.stopPropagation()}>
+            <ChevronRight className="transition-transform cursor-pointer" />
+          </CollapsibleTrigger>
+          {isOpen ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
+          {folder.name}
+        </SidebarMenuButton>
+
         <CollapsibleContent>
           <SidebarMenuSub>
-            {/* Render child folders first */}
             {childFolders.map((childFolder) => (
               <FolderTreeNode key={childFolder.id} folderId={childFolder.id} />
             ))}
@@ -107,7 +107,7 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
               <SidebarMenuItem key={file.id}>
                 <SidebarMenuButton
                   onClick={() => handleFileClick(file.id)}
-                  className="pl-4 text-sm text-ellipsis"
+                  className="pl-4 text-sm text-ellipsis cursor-pointer"
                 >
                   <File className="h-4 w-4 text-gray-500" />
                   <span>{file.name}</span>

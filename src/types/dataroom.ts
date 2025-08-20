@@ -73,6 +73,7 @@ export interface DataroomActions {
   // Utility
   getNodePath: (nodeId: string) => Breadcrumb[]
   getChildNodes: (folderId: string) => DataroomNode[]
+  initializeWithUser: (rootFolderName?: string) => void
   reset: () => void
 }
 

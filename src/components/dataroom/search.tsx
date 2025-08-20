@@ -70,7 +70,7 @@ export function Search() {
         className="text-muted-foreground text-sm bg-input/60 border-border border p-2 px-4 rounded-md flex gap-4 cursor-pointer hover:bg-input/80 transition-colors"
         onClick={() => setOpen(true)}
       >
-        <span>Search in Data Room...</span>
+        <span>Search...</span>
         <div className="flex items-center gap-1">
           <kbd className="bg-background text-muted-foreground pointer-events-none inline-flex h-5 items-center gap-3 rounded border px-1 font-mono text-[10px] font-medium opacity-100 select-none">
             <span className="text-xs">⌘</span>

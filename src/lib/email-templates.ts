@@ -19,7 +19,7 @@ export function generateSignInEmailTemplate({ url, email }: EmailTemplateProps) 
           <!-- Header -->
           <div style="text-align: center; margin-bottom: 40px;">
             <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); padding: 32px; border-radius: 16px; border: 1px solid #333;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 400;">
+              <h1 style="color: #ffffff; margin: 0; font-family: -apple-system, 'Times New Roman', Times, serif; font-size: 28px; font-weight: 400;">
                 Harvey: Data Room
               </h1>
             </div>
