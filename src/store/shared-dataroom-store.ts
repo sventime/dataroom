@@ -111,13 +111,19 @@ export const useSharedDataroomStore = create<SharedDataroomStore>()(
 
         if (pathSegments.length > 0) {
           const filteredSegments = pathSegments.filter(Boolean)
-          let currentFolder = dataroom.nodes.find(node => node.id === sharedRootId) || null
+          // For root sharing (sharedRootId is null), start with null as currentFolder
+          // For folder sharing, find the shared folder
+          let currentFolder = sharedRootId ? dataroom.nodes.find(node => node.id === sharedRootId) || null : null
 
           for (const segment of filteredSegments) {
             const decodedSegment = decodeURIComponent(segment)
+            // For root sharing, parentId should be null for top-level folders
+            // For folder sharing, parentId should be the current folder's id
+            const parentId = currentFolder?.id || null
+            
             const nextFolder = dataroom.nodes.find(
               node =>
-                node.parentId === currentFolder?.id &&
+                node.parentId === parentId &&
                 node.type === 'FOLDER' &&
                 node.name === decodedSegment
             )

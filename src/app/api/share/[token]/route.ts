@@ -43,8 +43,13 @@ export async function GET(
       
       for (const segment of pathSegments) {
         const decodedSegment = decodeURIComponent(segment)
+        
+        // For root sharing (sharedFolderId is null), start from root level nodes
+        // For folder sharing, start from the shared folder
+        const parentId = currentFolder?.id || null
+        
         const nextFolder = dataroom.nodes.find(
-          node => node.parentId === currentFolder?.id && 
+          node => node.parentId === parentId && 
                   node.type === 'FOLDER' && 
                   node.name === decodedSegment
         )
