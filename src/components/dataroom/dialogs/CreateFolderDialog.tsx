@@ -25,15 +25,34 @@ interface CreateFolderDialogProps {
 export function CreateFolderDialog({ children, parentId }: CreateFolderDialogProps) {
   const [open, setOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
-  const { createFolder, currentFolderId } = useDataroomStore()
+  const [error, setError] = useState('')
+  const { createFolder, currentFolderId, nodes } = useDataroomStore()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!folderName.trim()) return
 
-    createFolder(folderName.trim(), parentId || currentFolderId)
+    const trimmedName = folderName.trim()
+    const targetParentId = parentId || currentFolderId
+    const parentNode = nodes[targetParentId]
+
+    // Check if name already exists in current folder
+    if (parentNode?.children) {
+      const nameExists = parentNode.children.some(childId => {
+        const child = nodes[childId]
+        return child && child.name.toLowerCase() === trimmedName.toLowerCase()
+      })
+
+      if (nameExists) {
+        setError('A folder or file with this name already exists.')
+        return
+      }
+    }
+
+    createFolder(trimmedName, targetParentId)
     setFolderName('')
+    setError('')
     setOpen(false)
   }
 
@@ -41,7 +60,13 @@ export function CreateFolderDialog({ children, parentId }: CreateFolderDialogPro
     setOpen(isOpen)
     if (!isOpen) {
       setFolderName('')
+      setError('')
     }
+  }
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFolderName(e.target.value)
+    if (error) setError('') // Clear error when user starts typing
   }
 
   useEffect(() => {
@@ -80,10 +105,14 @@ export function CreateFolderDialog({ children, parentId }: CreateFolderDialogPro
               <Input
                 id="folder-name"
                 value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
+                onChange={handleNameChange}
                 placeholder="Enter folder name..."
                 autoFocus
+                className={error ? 'border-destructive' : ''}
               />
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
             </div>
           </div>
           <DialogFooter>

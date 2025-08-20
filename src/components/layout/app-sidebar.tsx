@@ -44,9 +44,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const files = event.target.files
     if (!files) return
 
-    Array.from(files).forEach((file) => {
-      uploadFile(file, currentFolderId)
+    const fileArray = Array.from(files)
+    
+    // Emit custom event to notify parent components about file uploads
+    const uploadEvent = new CustomEvent('fileUpload', {
+      detail: { files: fileArray, parentId: currentFolderId }
     })
+    window.dispatchEvent(uploadEvent)
 
     // Reset input
     event.target.value = ''

@@ -5,6 +5,7 @@ import { Search } from '@/components/dataroom/search'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { FileTable } from '@/components/dataroom/content/FileTable'
 import { Breadcrumbs } from '@/components/dataroom/breadcrumbs/Breadcrumbs'
+import { FileUploadConflictDialog } from '@/components/dataroom/dialogs/FileUploadConflictDialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
@@ -26,6 +27,7 @@ export default function DataroomPage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [dragCounter, setDragCounter] = useState(0)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
 
   // Initialize dataroom with user's name
   useEffect(() => {
@@ -45,6 +47,18 @@ export default function DataroomPage() {
       setIsInitialized(true)
     }
   }, [session, status, initializeWithUser, isInitialized])
+
+  // Listen for file upload events from sidebar
+  useEffect(() => {
+    const handleFileUpload = (event: CustomEvent) => {
+      const { files } = event.detail
+      setPendingFiles(Array.from(files))
+    }
+
+    window.addEventListener('fileUpload', handleFileUpload as EventListener)
+    return () =>
+      window.removeEventListener('fileUpload', handleFileUpload as EventListener)
+  }, [])
 
   // Add comprehensive drag event listeners
   useEffect(() => {
@@ -117,11 +131,12 @@ export default function DataroomPage() {
     setDragCounter(0)
 
     const files = Array.from(e.dataTransfer.files)
-    files.forEach((file) => {
-      uploadFile(file, currentFolderId)
-    })
+    setPendingFiles(files)
   }
 
+  const handleUploadComplete = () => {
+    setPendingFiles([])
+  }
 
   return (
     <SidebarProvider
@@ -157,12 +172,14 @@ export default function DataroomPage() {
           onDrop={handleDrop}
         >
           {isDragOver && (
-            <div className="absolute inset-0 flex items-center justify-center bg-accent/50 rounded-lg z-50 pointer-events-none animate-in fade-in-0 duration-200">
-              <Card className="shadow-xl animate-in zoom-in-95 duration-200">
+            <div className="absolute inset-0 flex items-center justify-center bg-accent/20 rounded-lg z-50 pointer-events-none animate-in fade-in-0 duration-200">
+              <Card className="shadow-xl animate-in zoom-in-95 duration-200 bg-background">
                 <CardContent className="p-8 text-center">
                   <Upload className="h-10 w-10 mx-auto mb-4 text-primary" />
-                  <p className="font-semibold mb-2">Release to upload files</p>
-                  <p className="text-sm text-muted-foreground">
+                  <h2 className="font-semibold mb-1 !font-sans">
+                    Release To Upload Files
+                  </h2>
+                  <p className="text-muted-foreground text-sm">
                     Files will be uploaded to the current folder
                   </p>
                 </CardContent>
@@ -170,9 +187,17 @@ export default function DataroomPage() {
             </div>
           )}
           <FileTable />
-          
         </div>
       </SidebarInset>
+
+      {/* File Upload Conflict Dialog */}
+      {pendingFiles.length > 0 && (
+        <FileUploadConflictDialog
+          files={pendingFiles}
+          parentId={currentFolderId}
+          onComplete={handleUploadComplete}
+        />
+      )}
     </SidebarProvider>
   )
 }

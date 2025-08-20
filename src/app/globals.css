@@ -178,3 +178,7 @@ h6 {
 [role="menuitem"] {
   cursor: pointer
 }
+
+button[type="button"] {
+  cursor: pointer
+}

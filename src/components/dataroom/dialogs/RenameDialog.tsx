@@ -26,15 +26,37 @@ interface RenameDialogProps {
 export function RenameDialog({ children, nodeId, currentName }: RenameDialogProps) {
   const [open, setOpen] = useState(false)
   const [newName, setNewName] = useState('')
-  const { renameNode } = useDataroomStore()
+  const [error, setError] = useState('')
+  const { renameNode, nodes } = useDataroomStore()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!newName.trim() || newName.trim() === currentName) return
+    const trimmedName = newName.trim()
+    if (!trimmedName || trimmedName === currentName) return
 
-    renameNode(nodeId, newName.trim())
+    // Find the node and its parent to check for duplicates
+    const node = nodes[nodeId]
+    if (!node) return
+
+    const parent = nodes[node.parentId!]
+    if (parent && parent.children) {
+      // Check if name already exists among siblings (excluding current node)
+      const nameExists = parent.children.some(childId => {
+        if (childId === nodeId) return false // Skip current node
+        const child = nodes[childId]
+        return child && child.name.toLowerCase() === trimmedName.toLowerCase()
+      })
+
+      if (nameExists) {
+        setError('A file or folder with this name already exists.')
+        return
+      }
+    }
+
+    renameNode(nodeId, trimmedName)
     setNewName('')
+    setError('')
     setOpen(false)
   }
 
@@ -42,9 +64,16 @@ export function RenameDialog({ children, nodeId, currentName }: RenameDialogProp
     setOpen(isOpen)
     if (isOpen) {
       setNewName(currentName)
+      setError('')
     } else {
       setNewName('')
+      setError('')
     }
+  }
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewName(e.target.value)
+    if (error) setError('') // Clear error when user starts typing
   }
 
   return (
@@ -70,10 +99,14 @@ export function RenameDialog({ children, nodeId, currentName }: RenameDialogProp
               <Input
                 id="new-name"
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                onChange={handleNameChange}
                 placeholder="Enter new name..."
                 autoFocus
+                className={error ? 'border-destructive' : ''}
               />
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
