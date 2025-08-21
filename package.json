@@ -3,13 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cp prisma/schema.dev.prisma prisma/schema.prisma && prisma generate && next dev --turbopack",
-    "build": "cp prisma/schema.prod.prisma prisma/schema.prisma && prisma generate && prisma db push && next build",
+    "dev": "prisma generate --schema=./prisma/schema.local.prisma && next dev --turbopack",
+    "build": "prisma generate --schema=./prisma/schema.local.prisma && prisma db push --schema=./prisma/schema.local.prisma && next build",
+    "build:vercel": "prisma generate --schema=./prisma/schema.prod.prisma && prisma db push --schema=./prisma/schema.prod.prisma && next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "cp prisma/schema.prod.prisma prisma/schema.prisma && prisma generate",
-    "db:dev": "cp prisma/schema.dev.prisma prisma/schema.prisma && prisma generate && prisma db push",
-    "db:prod": "cp prisma/schema.prod.prisma prisma/schema.prisma && prisma generate && prisma db push"
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",

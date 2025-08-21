@@ -19,7 +19,7 @@ import { useDataroomStore } from '@/store/dataroom-store'
 import { useEffect, useRef } from 'react'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { currentFolderId, nodes } = useDataroomStore()
+  const { currentFolderId } = useDataroomStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

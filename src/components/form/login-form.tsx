@@ -37,7 +37,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
       } else {
         setMessage('Something went wrong. Please try again.')
       }
-    } catch (error) {
+    } catch {
       setMessage('An error occurred. Please try again.')
     } finally {
       setLoading(false)

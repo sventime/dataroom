@@ -146,7 +146,7 @@ export const useDataroomStore = create<DataroomStore>()(
           const nodes: Record<string, DataroomNode> = {}
           
           // Convert shared dataroom nodes to our internal format
-          data.dataroom.nodes.forEach((apiNode: any) => {
+          data.dataroom.nodes.forEach((apiNode: ApiDataroomNode) => {
             const node = {
               id: apiNode.id,
               name: apiNode.name,
@@ -183,10 +183,10 @@ export const useDataroomStore = create<DataroomStore>()(
           // Calculate breadcrumbs for shared root
           const breadcrumbs = sharedRootId && nodes[sharedRootId] 
             ? [{ id: sharedRootId, name: nodes[sharedRootId].name, path: '/' }]
-            : [{ id: 'shared-root', name: `Data Room (${data.dataroom.owner?.email || data.dataroom.owner?.name || 'Unknown'})`, path: '/' }]
+            : [{ id: 'shared-root', name: `Data Room (${data.dataroom.user?.email || data.dataroom.user?.name || 'Unknown'})`, path: '/' }]
           
           set({ breadcrumbs })
-        } catch (error) {
+        } catch {
           set({
             error: 'This share link is invalid or has expired.',
             isLoading: false,

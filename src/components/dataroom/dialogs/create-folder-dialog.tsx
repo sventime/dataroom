@@ -103,7 +103,7 @@ export function CreateFolderDialog({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

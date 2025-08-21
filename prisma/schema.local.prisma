@@ -1,4 +1,4 @@
-// Development schema (SQLite)
+// Production schema (PostgreSQL)
 generator client {
   provider = "prisma-client-js"
 }
