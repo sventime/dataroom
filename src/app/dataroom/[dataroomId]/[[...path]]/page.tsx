@@ -58,7 +58,7 @@ export default function DataroomPathPage() {
   const handleProgressUpdate = (
     progress: number,
     status: 'preparing' | 'uploading' | 'complete' | 'error' | 'resolving',
-    uploadedCount?: number
+    uploadedCount?: number,
   ) => {
     setUploadProgress(progress)
     setUploadStatus(status)

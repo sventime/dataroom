@@ -80,6 +80,7 @@ export async function GET(
         id: dataroom.id,
         name: dataroom.name,
         nodes: accessibleNodes,
+        user: dataroom.user,
         owner: dataroom.user
       },
       sharedFolderId,

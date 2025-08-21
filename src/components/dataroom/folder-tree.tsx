@@ -112,7 +112,6 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
 
     const newPath = `${basePath}?${searchParams.toString()}`
 
-    console.log('Navigating to file:', newPath)
 
     const store = useDataroomStore.getState()
     const { navigateToFolder: storeNavigateToFolder } = store
@@ -141,7 +140,7 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
             <ChevronRight className="transition-transform cursor-pointer" />
           </CollapsibleTrigger>
           {isOpen ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
-          {folder.name}
+          <span className="truncate">{folder.name}</span>
         </SidebarMenuButton>
 
         <CollapsibleContent>
