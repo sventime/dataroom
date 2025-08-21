@@ -46,7 +46,6 @@ export default function DataroomPathPage() {
   >('preparing')
   const [hasShownLoader, setHasShownLoader] = useState(false)
 
-  // Show loader immediately on component mount - only on first load
   useEffect(() => {
     if (!hasShownLoader && !dataroom) {
       setMessage('Loading Documents...')
@@ -63,7 +62,6 @@ export default function DataroomPathPage() {
     setUploadStatus(status)
   }
 
-  // Load dataroom data
   useEffect(() => {
     if (!dataroom || dataroom.id !== dataroomId) {
       loadDataroomById(dataroomId)
@@ -81,7 +79,6 @@ export default function DataroomPathPage() {
     }
   }, [dataroom, isInitialized, path, navigateToPath, navigateToFolder])
 
-  // Handle animate out when loading completes
   useEffect(() => {
     if (dataroom && isInitialized && !isLoading && currentFolderId) {
       const timer = setTimeout(() => {
@@ -92,7 +89,6 @@ export default function DataroomPathPage() {
     }
   }, [dataroom, isInitialized, isLoading, currentFolderId, hideLoader])
 
-  // Handle URL changes (back/forward navigation)
   useEffect(() => {
     if (isInitialized && dataroom) {
       if (path.length > 0) {
@@ -219,7 +215,6 @@ export default function DataroomPathPage() {
     )
   }
 
-  // Validate dataroom access
   if (dataroom && dataroom.id !== dataroomId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -233,7 +228,6 @@ export default function DataroomPathPage() {
     )
   }
 
-  // Don't render content until dataroom is loaded
   if (!dataroom) {
     return null
   }

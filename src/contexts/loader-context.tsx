@@ -24,7 +24,6 @@ export function LoaderProvider({ children }: { children: ReactNode }) {
   }
 
   const hideLoader = (withAnimation = true) => {
-    // Don't do anything if loader is already hidden or currently animating out
     if (!isLoading || animatingOut) return
     
     if (withAnimation) {

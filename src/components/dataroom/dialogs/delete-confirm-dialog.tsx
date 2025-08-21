@@ -46,7 +46,6 @@ export function DeleteConfirmDialog({
         setInternalOpen(false)
       }
     } catch (error) {
-      // Error is already handled in the store, just don't close the dialog
       console.error('Failed to delete node:', error)
     }
   }

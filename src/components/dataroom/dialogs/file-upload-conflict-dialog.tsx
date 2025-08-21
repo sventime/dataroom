@@ -37,12 +37,10 @@ export function FileUploadConflictDialog({
   const [processedBatches, setProcessedBatches] = useState<Set<string>>(new Set())
   const { uploadFiles, nodes, currentFolderId, operationLoading } = useDataroomStore()
 
-  // Generate unique batch ID for this file set - include timestamp to allow re-uploads
   const batchId = files.length > 0 
     ? `${files.length}-${files.map(f => `${f.name}-${f.size}-${f.lastModified}`).join('|')}`
     : null
 
-  // Reset state when dialog closes
   useEffect(() => {
     if (!externalOpen) {
       setOpen(false)
@@ -75,7 +73,6 @@ export function FileUploadConflictDialog({
           setFileName(detectedConflicts[0].suggestedName)
           setOpen(true)
 
-          // Upload files without conflicts
           const conflictingFiles = detectedConflicts.map(c => c.file)
           const validFiles = getValidFiles(files.filter(f => !conflictingFiles.includes(f)))
           
@@ -85,11 +82,9 @@ export function FileUploadConflictDialog({
             await uploadFiles(validFiles, apiParentId || undefined)
             onProgressUpdate?.(100, 'complete')
           } else {
-            // No valid files to upload alongside conflicts
             onProgressUpdate?.(100, 'complete')
           }
         } else {
-          // No conflicts - upload all valid files
           const validFiles = getValidFiles(files)
           
           if (validFiles.length === 0) {
@@ -105,7 +100,6 @@ export function FileUploadConflictDialog({
           onProgressUpdate?.(100, 'complete')
           
           setTimeout(() => {
-            // Clear processed batch when upload completes successfully
             setProcessedBatches(prev => {
               const newSet = new Set(prev)
               if (batchId) newSet.delete(batchId)

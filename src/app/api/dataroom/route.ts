@@ -18,8 +18,8 @@ export async function GET() {
           include: {
             nodes: {
               orderBy: [
-                { type: 'asc' }, // Folders first
-                { name: 'asc' }  // Then alphabetically
+                { type: 'asc' },
+                { name: 'asc' }
               ]
             }
           }
@@ -31,7 +31,6 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Create default dataroom if none exists
     let dataroom = user.datarooms[0]
     if (!dataroom) {
       dataroom = await prisma.dataroom.create({
@@ -45,7 +44,6 @@ export async function GET() {
       })
     }
 
-    // Add user information to the response
     const dataroomWithUser = {
       ...dataroom,
       user: {

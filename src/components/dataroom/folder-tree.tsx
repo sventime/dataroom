@@ -89,7 +89,6 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
         ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
         : `/dataroom/${dataroom.id}`
 
-    // When navigating to folder, clear selections (don't preserve them)
     router.push(basePath)
   }
 
@@ -98,7 +97,6 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
 
     const newSelection = [fileId]
 
-    // Build URL path immediately without waiting for store navigation
     const targetBreadcrumbs = getNodePath(folderId)
     const pathSegments = targetBreadcrumbs
       .slice(1)
@@ -116,7 +114,6 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
 
     console.log('Navigating to file:', newPath)
 
-    // Then update store state (this will sync with the URL)
     const store = useDataroomStore.getState()
     const { navigateToFolder: storeNavigateToFolder } = store
     storeNavigateToFolder(folderId)
@@ -125,7 +122,6 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
       toggleFolderExpansion(folderId)
     }
 
-    // Update URL FIRST - this triggers immediate navigation with selection
     router.replace(newPath)
   }
 
@@ -154,7 +150,7 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
               <FolderTreeNode key={childFolder.id} folderId={childFolder.id} />
             ))}
 
-            {/* Render files */}
+            
             {childFiles.map((file) => (
               <SidebarMenuItem key={file.id}>
                 <SidebarMenuButton

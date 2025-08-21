@@ -28,13 +28,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     const fileArray = Array.from(files)
 
-    // Emit custom event to notify parent components about file uploads
     const uploadEvent = new CustomEvent('fileUpload', {
       detail: { files: fileArray, parentId: currentFolderId },
     })
     window.dispatchEvent(uploadEvent)
 
-    // Reset input
     event.target.value = ''
   }
 
@@ -53,7 +51,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar {...props}>
       <SidebarContent>
-        {/* Quick Actions */}
+        
         <SidebarGroup>
           <h1 className="text-2xl font-bold flex items-center gap-2 py-2 px-2">
             Harvey: Data Room
@@ -86,7 +84,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Folder Tree */}
+        
         <SidebarGroup>
           <SidebarGroupLabel>Documents</SidebarGroupLabel>
           <SidebarGroupContent>

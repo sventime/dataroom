@@ -6,7 +6,6 @@ import { HarveyLoader } from './harvey-loader'
 export function GlobalLoader() {
   const { isLoading, animatingOut, message } = useLoader()
 
-  // Always render the loader when isLoading is true, even during animation
   if (!isLoading && !animatingOut) return null
 
   return (

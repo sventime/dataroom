@@ -38,7 +38,7 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
   const [ellipsisDropdownOpen, setEllipsisDropdownOpen] = useState(false)
 
   const handleDeleteComplete = () => {
-    setDropdownOpen(false) // Close dropdown when delete completes
+    setDropdownOpen(false)
     if (onDeleteComplete) {
       onDeleteComplete()
     } else {
@@ -97,7 +97,6 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
           ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
           : `/dataroom/${dataroom.id}`
 
-      // When navigating via breadcrumbs, clear selections
       const newPath = basePath
 
       router.push(newPath)

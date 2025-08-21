@@ -5,7 +5,6 @@ import { Button } from '../ui/button'
 
 export default function SignOutButton() {
   const handleSignOut = async () => {
-    // Sign out from NextAuth
     await signOut({
       callbackUrl: '/auth/signin',
       redirect: true,

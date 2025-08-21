@@ -31,7 +31,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Find the node and verify ownership
     const node = await prisma.dataroomNode.findFirst({
       where: {
         id: id,
@@ -45,7 +44,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'Node not found' }, { status: 404 })
     }
 
-    // Check for duplicate names in the same parent folder
     const existingNode = await prisma.dataroomNode.findFirst({
       where: {
         dataroomId: node.dataroomId,
@@ -91,7 +89,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Find the node and verify ownership
     const node = await prisma.dataroomNode.findFirst({
       where: {
         id: id,
@@ -108,7 +105,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'Node not found' }, { status: 404 })
     }
 
-    // Delete all files in the subtree first
     const nodesToDelete = await getAllDescendants(id)
     nodesToDelete.push(node)
 
@@ -122,7 +118,6 @@ export async function DELETE(
       }
     }
 
-    // Delete the node (cascade will handle children)
     await prisma.dataroomNode.delete({
       where: { id: id }
     })

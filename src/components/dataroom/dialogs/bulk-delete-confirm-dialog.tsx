@@ -40,7 +40,6 @@ export function BulkDeleteConfirmDialog({
         setInternalOpen(false)
       }
     } catch (error) {
-      // Error is already handled in the store, just don't close the dialog
       console.error('Failed to delete nodes:', error)
     }
   }
@@ -61,7 +60,6 @@ export function BulkDeleteConfirmDialog({
     }
   }
 
-  // Get names of selected items for display
   const selectedItems = nodeIds.map((id) => nodes[id]).filter(Boolean)
   const folderCount = selectedItems.filter((item) => item.type === 'folder').length
   const fileCount = selectedItems.filter((item) => item.type === 'file').length
@@ -90,7 +88,7 @@ export function BulkDeleteConfirmDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Show first few item names */}
+        
         {selectedItems.length > 0 && (
           <div className="max-h-32 overflow-y-auto">
             <p className="text-sm font-medium mb-2">Items to delete:</p>

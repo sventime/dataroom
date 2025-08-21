@@ -27,7 +27,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Find all nodes and verify ownership
     const nodes = await prisma.dataroomNode.findMany({
       where: {
         id: { in: nodeIds },
@@ -41,7 +40,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Some nodes not found or access denied' }, { status: 404 })
     }
 
-    // Get all descendants for each node
     const allNodesToDelete = []
     for (const nodeId of nodeIds) {
       const descendants = await getAllDescendants(nodeId)
@@ -51,7 +49,6 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    // Delete all files first
     for (const node of allNodesToDelete) {
       if (node.type === 'FILE' && node.filePath) {
         try {
@@ -62,7 +59,6 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    // Delete all nodes
     await prisma.dataroomNode.deleteMany({
       where: {
         id: { in: nodeIds }

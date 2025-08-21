@@ -21,7 +21,6 @@ export function detectFileConflicts(
 ): FileConflict[] {
   const allConflicts: FileConflict[] = []
 
-  // Check for file type violations FIRST - highest priority
   const typeViolations = files.filter((file) => !isPdfFile(file))
   typeViolations.forEach((file) => {
     allConflicts.push({
@@ -33,7 +32,6 @@ export function detectFileConflicts(
     })
   })
 
-  // Check for size violations SECOND - only for PDF files
   const pdfFiles = files.filter((file) => isPdfFile(file))
   const sizeViolations = pdfFiles.filter((file) => file.size > MAX_FILE_SIZE)
   sizeViolations.forEach((file) => {
@@ -46,7 +44,6 @@ export function detectFileConflicts(
     })
   })
 
-  // Check for name conflicts LAST - only for valid PDF files that pass size check
   const validFiles = pdfFiles.filter((file) => file.size <= MAX_FILE_SIZE)
   const nameConflicts = validFiles.filter((file) => existingFiles.includes(file.name))
   nameConflicts.forEach((file) => {

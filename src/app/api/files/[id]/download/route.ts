@@ -34,7 +34,6 @@ export async function GET(
     let fileNode = null
 
     if (shareToken) {
-      // Public access via share token
       const shareLink = await prisma.shareLink.findUnique({
         where: { token: shareToken },
         include: {
@@ -51,7 +50,6 @@ export async function GET(
       if (shareLink && shareLink.dataroom.nodes.length > 0) {
         fileNode = shareLink.dataroom.nodes[0]
         
-        // Verify file is accessible within shared folder scope
         if (shareLink.sharedFolderId) {
           hasAccess = fileNode.parentId === shareLink.sharedFolderId || 
             await isDescendantOfFolder(fileNode.id, shareLink.sharedFolderId)
@@ -60,7 +58,6 @@ export async function GET(
         }
       }
     } else {
-      // Authenticated access
       const session = await getServerSession()
       
       if (!session?.user?.email) {

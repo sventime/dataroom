@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Verify dataroom ownership
     const dataroom = await prisma.dataroom.findFirst({
       where: { 
         id: dataroomId,
@@ -46,7 +45,6 @@ export async function POST(request: NextRequest) {
     const conflicts = []
 
     for (const file of files) {
-      // Check file size limit
       if (file.size > MAX_FILE_SIZE) {
         conflicts.push({ 
           name: file.name, 
@@ -55,7 +53,6 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Check for duplicate names
       const existingNode = await prisma.dataroomNode.findFirst({
         where: {
           dataroomId,

@@ -49,7 +49,6 @@ export function Search() {
     if (!node || !dataroom) return
 
     if (node.type === 'folder') {
-      // Navigate to folder (will auto-expand path)
       navigateToFolder(nodeId)
       
       const breadcrumbs = getNodePath(nodeId)
@@ -64,9 +63,7 @@ export function Search() {
 
       router.push(basePath)
     } else {
-      // For files, navigate to parent folder and select the file
       if (node.parentId) {
-        // Navigate to parent folder (will auto-expand path) and select the file
         navigateToFolder(node.parentId)
         
         const breadcrumbs = getNodePath(node.parentId)
@@ -106,7 +103,6 @@ export function Search() {
       return pathArray.join(' / ')
     }
 
-    // Show first folder + ... + last two folders
     const first = pathArray[0]
     const lastTwo = pathArray.slice(-2)
     return `${first} / ... / ${lastTwo.join(' / ')}`
@@ -142,7 +138,7 @@ export function Search() {
               <CommandGroup heading="Folders">
                 {folders.map((folder) => {
                   const breadcrumbs = getNodePath(folder.id)
-                  const pathNames = breadcrumbs.slice(1).map(crumb => crumb.name) // Skip root
+                  const pathNames = breadcrumbs.slice(1).map(crumb => crumb.name)
                   return (
                     <CommandItem
                       key={folder.id}
@@ -167,7 +163,7 @@ export function Search() {
               <CommandGroup heading="Files">
                 {files.map((file) => {
                   const breadcrumbs = getNodePath(file.id)
-                  const pathNames = breadcrumbs.slice(1).map(crumb => crumb.name) // Skip root
+                  const pathNames = breadcrumbs.slice(1).map(crumb => crumb.name)
                   return (
                     <CommandItem
                       key={file.id}

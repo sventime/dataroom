@@ -3,12 +3,11 @@ import { randomUUID } from 'crypto'
 import { promises as fs } from 'fs'
 import path from 'path'
 
-// Fallback to local storage for development
 const isVercel = !!process.env.VERCEL
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads')
 
 export async function ensureUploadDir() {
-  if (isVercel) return // No need for directories in Vercel Blob
+  if (isVercel) return
   try {
     await fs.access(UPLOAD_DIR)
   } catch {
@@ -24,7 +23,6 @@ export async function saveFile(
   const arrayBuffer = await file.arrayBuffer()
   
   if (isVercel) {
-    // Use Vercel Blob for production
     const fileExtension = path.extname(file.name)
     const fileName = `${randomUUID()}${fileExtension}`
     const filePath = `${userId}/${dataroomId}/${fileName}`
@@ -35,12 +33,11 @@ export async function saveFile(
     })
     
     return {
-      filePath: blob.url, // Store the full URL for Vercel Blob
+      filePath: blob.url,
       fileName: file.name,
       size: arrayBuffer.byteLength
     }
   } else {
-    // Use local file system for development
     await ensureUploadDir()
     
     const userDir = path.join(UPLOAD_DIR, userId, dataroomId)
@@ -63,7 +60,6 @@ export async function saveFile(
 
 export async function getFileBuffer(filePath: string): Promise<Buffer> {
   if (isVercel) {
-    // For Vercel Blob, filePath is actually the full URL
     const response = await fetch(filePath)
     if (!response.ok) {
       throw new Error(`Failed to fetch file: ${response.statusText}`)
@@ -71,7 +67,6 @@ export async function getFileBuffer(filePath: string): Promise<Buffer> {
     const arrayBuffer = await response.arrayBuffer()
     return Buffer.from(arrayBuffer)
   } else {
-    // Local file system
     const fullPath = path.join(UPLOAD_DIR, filePath)
     return fs.readFile(fullPath)
   }
@@ -79,16 +74,14 @@ export async function getFileBuffer(filePath: string): Promise<Buffer> {
 
 export async function deleteFile(filePath: string): Promise<void> {
   if (isVercel) {
-    // For Vercel Blob, extract the pathname from the URL
     try {
       const url = new URL(filePath)
-      const pathname = url.pathname.substring(1) // Remove leading slash
+      const pathname = url.pathname.substring(1)
       await del(pathname)
     } catch (error) {
       console.error('Error deleting file from Vercel Blob:', error)
     }
   } else {
-    // Local file system
     const fullPath = path.join(UPLOAD_DIR, filePath)
     try {
       await fs.unlink(fullPath)
@@ -100,7 +93,6 @@ export async function deleteFile(filePath: string): Promise<void> {
 
 export async function getFileInfo(filePath: string) {
   if (isVercel) {
-    // For Vercel Blob
     try {
       const url = new URL(filePath)
       const pathname = url.pathname.substring(1)
@@ -110,7 +102,6 @@ export async function getFileInfo(filePath: string) {
       throw error
     }
   } else {
-    // Local file system
     const fullPath = path.join(UPLOAD_DIR, filePath)
     return fs.stat(fullPath)
   }

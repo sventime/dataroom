@@ -56,11 +56,10 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
     if (node.type === 'folder') {
       navigateToFolder(node.id)
 
-      // Update the URL route
       if (dataroom) {
         const breadcrumbs = getNodePath(node.id)
         const pathSegments = breadcrumbs
-          .slice(1) // Skip root
+          .slice(1)
           .map((crumb) => encodeURIComponent(crumb.name))
 
         const basePath =
@@ -243,7 +242,6 @@ export function FileTable({ className }: FileTableProps) {
 
   const nodes = getChildNodes(currentFolderId)
 
-  // Derive selected state from URL - this is the single source of truth
   const getSelectedNodeIds = () => {
     const selectedParam = searchParams.get('selected')
     if (!selectedParam) return []
@@ -281,7 +279,6 @@ export function FileTable({ className }: FileTableProps) {
     router.replace(newPath)
   }
 
-  // No more URL sync needed - we derive state from URL directly
 
   useEffect(() => {
     const currentFolderNodeIds = nodes.map((node) => node.id)

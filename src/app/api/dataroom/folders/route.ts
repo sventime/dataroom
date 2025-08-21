@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Verify dataroom ownership
     const dataroom = await prisma.dataroom.findFirst({
       where: { 
         id: dataroomId,
@@ -37,7 +36,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dataroom not found' }, { status: 404 })
     }
 
-    // Check for duplicate names in the same parent folder
     const existingNode = await prisma.dataroomNode.findFirst({
       where: {
         dataroomId,

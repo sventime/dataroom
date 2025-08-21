@@ -23,7 +23,6 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Find the specific dataroom and verify ownership
     const dataroom = await prisma.dataroom.findFirst({
       where: { 
         id: id,
@@ -32,8 +31,8 @@ export async function GET(
       include: {
         nodes: {
           orderBy: [
-            { type: 'asc' }, // Folders first
-            { name: 'asc' }  // Then alphabetically
+            { type: 'asc' },
+            { name: 'asc' }
           ]
         }
       }
@@ -43,7 +42,6 @@ export async function GET(
       return NextResponse.json({ error: 'Dataroom not found or access denied' }, { status: 404 })
     }
 
-    // Add user information to the response
     const dataroomWithUser = {
       ...dataroom,
       user: {

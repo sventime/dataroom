@@ -44,7 +44,6 @@ export function CreateFolderDialog({
     const targetParentId = parentId || currentFolderId || 'root'
     const parentNode = nodes[targetParentId]
 
-    // Check if name already exists in current folder
     if (parentNode && parentNode.type === 'folder' && 'children' in parentNode) {
       const nameExists = parentNode.children.some((childId) => {
         const child = nodes[childId]
@@ -67,7 +66,6 @@ export function CreateFolderDialog({
         setInternalOpen(false)
       }
     } catch (error) {
-      // Error is already handled in the store, just don't close the dialog
       console.error('Failed to create folder:', error)
     }
   }
@@ -86,7 +84,7 @@ export function CreateFolderDialog({
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFolderName(e.target.value)
-    if (error) setError('') // Clear error when user starts typing
+    if (error) setError('')
   }
 
   useEffect(() => {

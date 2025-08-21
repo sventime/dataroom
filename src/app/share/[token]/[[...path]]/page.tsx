@@ -64,7 +64,6 @@ export default function SharedDataroomPathPage() {
   const [animatingOut, setAnimatingOut] = useState(false)
   const [showLoader, setShowLoader] = useState(false)
 
-  // Load everything once on mount
   useEffect(() => {
     if (!token) return
     if (!isInitialized) {
@@ -73,7 +72,6 @@ export default function SharedDataroomPathPage() {
     }
   }, [token, isInitialized, loadSharedDataroom])
 
-  // Handle animate out when loading completes
   useEffect(() => {
     if (dataroom && isInitialized && !animatingOut && !isLoading) {
       console.log('Starting animation out...')
@@ -89,7 +87,6 @@ export default function SharedDataroomPathPage() {
     }
   }, [dataroom, isInitialized, isLoading, animatingOut])
 
-  // Navigate to initial path after data is loaded
   useEffect(() => {
     if (!isInitialized || !dataroom) return
 
@@ -107,7 +104,6 @@ export default function SharedDataroomPathPage() {
     navigateToFolder,
   ])
 
-  // Handle URL navigation changes (back/forward)
   useEffect(() => {
     if (!isInitialized || !dataroom) return
 
@@ -146,7 +142,6 @@ export default function SharedDataroomPathPage() {
   }
 
   const handleFolderNavigation = (folderId: string | null) => {
-    // Handle special shared-root ID for root sharing
     const actualFolderId = folderId === 'shared-root' ? sharedRootId : folderId
 
     if (
@@ -182,7 +177,6 @@ export default function SharedDataroomPathPage() {
 
   const showLoading = showLoader
 
-  // Debug logs
   console.log('States:', {
     dataroom: !!dataroom,
     isInitialized,
