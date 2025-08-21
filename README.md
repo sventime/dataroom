@@ -7,6 +7,8 @@
 I decided to replicate original Harvey look and feel. I've downloaded font and tried to reuse colors and replicate original vbe.
 
 
+
+
 ## Auth & Security
 Security is the comst imporst feature in Data Room.
 So I've started with setting up Auth services.
