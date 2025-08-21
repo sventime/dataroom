@@ -286,14 +286,6 @@ export function FileTable({ className }: FileTableProps) {
       currentFolderNodeIds.includes(id),
     )
     setAllSelected(nodes.length > 0 && selectedInCurrentFolder.length === nodes.length)
-
-    console.log('FileTable selection state:', {
-      nodes: nodes.length,
-      currentFolderNodeIds,
-      selectedNodeIds,
-      selectedInCurrentFolder,
-      allSelected: nodes.length > 0 && selectedInCurrentFolder.length === nodes.length,
-    })
   }, [selectedNodeIds, nodes])
 
   const handleSelectAll = (checked: boolean) => {

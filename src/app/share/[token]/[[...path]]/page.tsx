@@ -74,11 +74,9 @@ export default function SharedDataroomPathPage() {
 
   useEffect(() => {
     if (dataroom && isInitialized && !animatingOut && !isLoading) {
-      console.log('Starting animation out...')
       const timer = setTimeout(() => {
         setAnimatingOut(true)
         setTimeout(() => {
-          console.log('Hiding loader')
           setShowLoader(false)
         }, 300)
       }, 500)
@@ -176,14 +174,6 @@ export default function SharedDataroomPathPage() {
   }
 
   const showLoading = showLoader
-
-  console.log('States:', {
-    dataroom: !!dataroom,
-    isInitialized,
-    isLoading,
-    animatingOut,
-    showLoader,
-  })
 
   if (error) {
     return (

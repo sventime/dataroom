@@ -8,15 +8,15 @@ export interface BaseNode {
 
 export interface Folder extends BaseNode {
   type: 'folder'
-  children: string[] // Array of child node IDs
+  children: string[]
 }
 
 export interface File extends BaseNode {
   type: 'file'
   size: number
   mimeType: string
-  content?: string // For mock storage
-  url?: string // For actual file URLs
+  content?: string
+  url?: string
 }
 
 export type DataroomNode = Folder | File
