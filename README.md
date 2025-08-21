@@ -2,9 +2,9 @@
 
 👉 [Live Demo](https://harvery-dataroom.vercel.app/)
 
-## Design UI desigion
+## Design Decisions
 
-I decided to replicate original Harvey look and feel. I've downloaded font and tried to reuse colors and replicate original vbe.
+
 
 
 
@@ -18,3 +18,6 @@ For the best user experience I made 2 options:
 1. Magic link with email auth
 2. Login with Google/Apple
 
+## Look and Feel
+
+I decided to replicate original Harvey look and feel. I've downloaded font and tried to reuse colors and replicate original vbe. The app in mainly based on Shadcn
