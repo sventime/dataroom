@@ -42,8 +42,9 @@ export default function DataroomPathPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState<
-    'preparing' | 'uploading' | 'complete' | 'error'
+    'preparing' | 'uploading' | 'complete' | 'error' | 'resolving'
   >('preparing')
+  const [uploadedCount, setUploadedCount] = useState(0)
   const [hasShownLoader, setHasShownLoader] = useState(false)
 
   useEffect(() => {
@@ -56,10 +57,14 @@ export default function DataroomPathPage() {
 
   const handleProgressUpdate = (
     progress: number,
-    status: 'preparing' | 'uploading' | 'complete' | 'error',
+    status: 'preparing' | 'uploading' | 'complete' | 'error' | 'resolving',
+    uploadedCount?: number
   ) => {
     setUploadProgress(progress)
     setUploadStatus(status)
+    if (uploadedCount !== undefined) {
+      setUploadedCount(uploadedCount)
+    }
   }
 
   useEffect(() => {
@@ -191,6 +196,7 @@ export default function DataroomPathPage() {
     setIsUploading(false)
     setUploadProgress(0)
     setUploadStatus('preparing')
+    setUploadedCount(0)
   }
 
   if (status === 'unauthenticated') {
@@ -283,14 +289,18 @@ export default function DataroomPathPage() {
                             ? 'Upload Complete!'
                             : uploadStatus === 'error'
                               ? 'Upload Failed'
-                              : 'Uploading Files'}
+                              : uploadStatus === 'resolving'
+                                ? 'Resolving Conflicts'
+                                : 'Uploading Files'}
                         </h2>
                         <p className="text-muted-foreground text-sm">
                           {uploadStatus === 'complete'
-                            ? `Successfully uploaded ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''}!`
+                            ? `Successfully uploaded ${uploadedCount} file${uploadedCount !== 1 ? 's' : ''}!`
                             : uploadStatus === 'error'
                               ? 'Please try again'
-                              : `Uploading ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''} to your dataroom...`}
+                              : uploadStatus === 'resolving'
+                                ? 'Please resolve file conflicts in the dialog'
+                                : `Uploading ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''} to your dataroom...`}
                         </p>
                       </>
                     ) : (

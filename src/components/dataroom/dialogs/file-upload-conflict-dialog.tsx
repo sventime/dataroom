@@ -18,7 +18,7 @@ interface FileUploadConflictDialogProps {
   parentId?: string
   onComplete: () => void
   open?: boolean
-  onProgressUpdate?: (progress: number, status: UploadStatus) => void
+  onProgressUpdate?: (progress: number, status: UploadStatus | 'resolving', uploadedCount?: number) => void
 }
 
 export function FileUploadConflictDialog({
@@ -35,6 +35,7 @@ export function FileUploadConflictDialog({
   const [error, setError] = useState('')
   const [skippedFiles, setSkippedFiles] = useState<Set<File>>(new Set())
   const [processedBatches, setProcessedBatches] = useState<Set<string>>(new Set())
+  const [uploadedValidFilesCount, setUploadedValidFilesCount] = useState(0)
   const { uploadFiles, nodes, currentFolderId, operationLoading } = useDataroomStore()
 
   const batchId = files.length > 0 
@@ -42,15 +43,15 @@ export function FileUploadConflictDialog({
     : null
 
   useEffect(() => {
-    if (!externalOpen) {
-      setOpen(false)
+    if (!externalOpen && !open) {
       setConflicts([])
       setCurrentIndex(0)
       setFileName('')
       setError('')
       setSkippedFiles(new Set())
+      setUploadedValidFilesCount(0)
     }
-  }, [externalOpen])
+  }, [externalOpen, open])
 
   useEffect(() => {
     if (!externalOpen || !batchId || processedBatches.has(batchId)) return
@@ -80,10 +81,11 @@ export function FileUploadConflictDialog({
             onProgressUpdate?.(50, 'uploading')
             const apiParentId = targetParentId === 'root' ? null : targetParentId
             await uploadFiles(validFiles, apiParentId || undefined)
-            onProgressUpdate?.(100, 'complete')
-          } else {
-            onProgressUpdate?.(100, 'complete')
+            setUploadedValidFilesCount(validFiles.length)
           }
+          
+          onProgressUpdate?.(75, 'resolving')
+          return
         } else {
           const validFiles = getValidFiles(files)
           
@@ -97,7 +99,7 @@ export function FileUploadConflictDialog({
           onProgressUpdate?.(50, 'uploading')
           const apiParentId = targetParentId === 'root' ? null : targetParentId
           await uploadFiles(validFiles, apiParentId || undefined)
-          onProgressUpdate?.(100, 'complete')
+          onProgressUpdate?.(100, 'complete', validFiles.length)
           
           setTimeout(() => {
             setProcessedBatches(prev => {
@@ -119,7 +121,7 @@ export function FileUploadConflictDialog({
     }
 
     handleUpload()
-  }, [externalOpen, batchId, processedBatches, files, parentId, currentFolderId, nodes, uploadFiles, onProgressUpdate, onComplete])
+  }, [externalOpen, batchId, processedBatches, files, parentId, currentFolderId, nodes, uploadFiles, onProgressUpdate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -178,6 +180,9 @@ export function FileUploadConflictDialog({
         await uploadFiles(filesToUpload, apiParentId || undefined)
       }
       
+      const totalUploadedCount = uploadedValidFilesCount + filesToUpload.length
+      onProgressUpdate?.(100, 'complete', totalUploadedCount)
+      
       // Clear processed batch when upload completes successfully
       setProcessedBatches(prev => {
         const newSet = new Set(prev)
@@ -215,10 +220,15 @@ export function FileUploadConflictDialog({
 
   const handleCancel = () => {
     setOpen(false)
+    setProcessedBatches(prev => {
+      const newSet = new Set(prev)
+      if (batchId) newSet.delete(batchId)
+      return newSet
+    })
     onComplete()
   }
 
-  if (!open || conflicts.length === 0) {
+  if (conflicts.length === 0 || !open) {
     return null
   }
 
