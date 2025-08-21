@@ -1,10 +1,10 @@
 'use client'
 
-import { BulkDeleteConfirmDialog } from '@/components/dataroom/dialogs/BulkDeleteConfirmDialog'
-import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
-import { DeleteConfirmDialog } from '@/components/dataroom/dialogs/DeleteConfirmDialog'
-import { RenameDialog } from '@/components/dataroom/dialogs/RenameDialog'
-import { useDialog } from '@/contexts/DialogContext'
+import { BulkDeleteConfirmDialog } from '@/components/dataroom/dialogs/bulk-delete-confirm-dialog'
+import { CreateFolderDialog } from '@/components/dataroom/dialogs/create-folder-dialog'
+import { DeleteConfirmDialog } from '@/components/dataroom/dialogs/delete-confirm-dialog'
+import { RenameDialog } from '@/components/dataroom/dialogs/rename-dialog'
+import { useDialog } from '@/contexts/dialog-context'
 
 export function DialogRenderer() {
   const { dialogState, closeDialog } = useDialog()
@@ -13,7 +13,9 @@ export function DialogRenderer() {
     <>
       <RenameDialog
         nodeId={dialogState.type === 'rename' ? (dialogState.props.nodeId as string) : ''}
-        currentName={dialogState.type === 'rename' ? (dialogState.props.currentName as string) : ''}
+        currentName={
+          dialogState.type === 'rename' ? (dialogState.props.currentName as string) : ''
+        }
         {...(dialogState.type === 'rename' ? dialogState.props : {})}
         open={dialogState.type === 'rename' && dialogState.open}
         onOpenChange={closeDialog}
@@ -21,7 +23,9 @@ export function DialogRenderer() {
 
       <DeleteConfirmDialog
         nodeId={dialogState.type === 'delete' ? (dialogState.props.nodeId as string) : ''}
-        nodeName={dialogState.type === 'delete' ? (dialogState.props.nodeName as string) : ''}
+        nodeName={
+          dialogState.type === 'delete' ? (dialogState.props.nodeName as string) : ''
+        }
         {...(dialogState.type === 'delete' ? dialogState.props : {})}
         open={dialogState.type === 'delete' && dialogState.open}
         onOpenChange={closeDialog}
@@ -34,7 +38,9 @@ export function DialogRenderer() {
       />
 
       <BulkDeleteConfirmDialog
-        nodeIds={dialogState.type === 'bulkDelete' ? (dialogState.props.nodeIds as string[]) : []}
+        nodeIds={
+          dialogState.type === 'bulkDelete' ? (dialogState.props.nodeIds as string[]) : []
+        }
         {...(dialogState.type === 'bulkDelete' ? dialogState.props : {})}
         open={dialogState.type === 'bulkDelete' && dialogState.open}
         onOpenChange={closeDialog}

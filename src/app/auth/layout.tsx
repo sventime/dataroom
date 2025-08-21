@@ -1,4 +1,4 @@
-import { Footer } from '@/components/layout/footer'
+import { AppFooter } from '@/components/layout/app-footer'
 
 export default function RootLayout({
   children,
@@ -8,7 +8,7 @@ export default function RootLayout({
   return (
     <>
       <main className="flex-1 flex flex-col">{children}</main>
-      <Footer />
+      <AppFooter />
     </>
   )
 }

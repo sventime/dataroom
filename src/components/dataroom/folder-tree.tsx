@@ -51,7 +51,6 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
     currentFolderId,
     navigateToFolder,
     getChildNodes,
-    selectNode,
     dataroom,
     getNodePath,
     isFolderExpanded,

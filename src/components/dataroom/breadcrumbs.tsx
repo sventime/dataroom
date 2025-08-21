@@ -18,7 +18,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useDialog } from '@/contexts/DialogContext'
+import { useDialog } from '@/contexts/dialog-context'
 import { useDataroomStore } from '@/store/dataroom-store'
 import { ChevronDown, Copy, FolderPen, FolderPlus, FolderX, Home } from 'lucide-react'
 import { useRouter } from 'next/navigation'

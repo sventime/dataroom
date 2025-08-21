@@ -1,4 +1,4 @@
-function Footer() {
+export function AppFooter() {
   return (
     <footer className="border-t border-gray-800 p-5 text-center text-muted-foreground text-sm">
       <p className="">
@@ -8,5 +8,3 @@ function Footer() {
     </footer>
   )
 }
-
-export { Footer }

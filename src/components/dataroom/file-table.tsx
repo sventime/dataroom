@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useDialog } from '@/contexts/DialogContext'
+import { useDialog } from '@/contexts/dialog-context'
 import { MAX_FILE_SIZE_MB } from '@/lib/constants'
 import { useDataroomStore } from '@/store/dataroom-store'
 import type { DataroomNode } from '@/types/dataroom'
@@ -55,7 +55,7 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
   const handleDoubleClick = () => {
     if (node.type === 'folder') {
       navigateToFolder(node.id)
-      
+
       // Update the URL route
       if (dataroom) {
         const breadcrumbs = getNodePath(node.id)
@@ -63,9 +63,10 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
           .slice(1) // Skip root
           .map((crumb) => encodeURIComponent(crumb.name))
 
-        const basePath = pathSegments.length > 0
-          ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
-          : `/dataroom/${dataroom.id}`
+        const basePath =
+          pathSegments.length > 0
+            ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
+            : `/dataroom/${dataroom.id}`
 
         router.push(basePath)
       }

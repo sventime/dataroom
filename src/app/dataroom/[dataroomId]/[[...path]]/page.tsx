@@ -1,11 +1,11 @@
 'use client'
 
 import SignOutButton from '@/components/auth/sign-out-button'
-import { Breadcrumbs } from '@/components/dataroom/breadcrumbs/Breadcrumbs'
-import { FileTable } from '@/components/dataroom/content/FileTable'
-import { FileUploadConflictDialog } from '@/components/dataroom/dialogs/FileUploadConflictDialog'
+import { Breadcrumbs } from '@/components/dataroom/breadcrumbs'
+import { FileUploadConflictDialog } from '@/components/dataroom/dialogs/file-upload-conflict-dialog'
+import { FileTable } from '@/components/dataroom/file-table'
+import { AppSidebar } from '@/components/dataroom/layout/sidebar'
 import { Search } from '@/components/dataroom/search'
-import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
@@ -80,7 +80,6 @@ export default function DataroomPathPage() {
       setIsInitialized(true)
     }
   }, [dataroom, isInitialized, path, navigateToPath, navigateToFolder])
-
 
   // Handle animate out when loading completes
   useEffect(() => {

@@ -3,8 +3,8 @@
 import { Upload } from 'lucide-react'
 import * as React from 'react'
 
-import { CreateFolderDialog } from '@/components/dataroom/dialogs/CreateFolderDialog'
-import { FolderTree } from '@/components/dataroom/sidebar/FolderTree'
+import { CreateFolderDialog } from '@/components/dataroom/dialogs/create-folder-dialog'
+import { FolderTree } from '@/components/dataroom/folder-tree'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {

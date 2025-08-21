@@ -57,7 +57,6 @@ export default function SharedDataroomPathPage() {
     navigateToFolder,
     navigateToPath,
     getChildNodes,
-    getNodePath,
     buildPathFromFolderId,
     isDescendantOfSharedRoot,
   } = useDataroomStore()
