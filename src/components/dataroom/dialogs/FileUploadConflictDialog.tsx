@@ -11,8 +11,10 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useDataroomStore } from '@/store/dataroom-store'
+import { MAX_FILE_SIZE, formatFileSize } from '@/lib/constants'
 import { Loader2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 interface FileUploadConflictDialogProps {
   files: File[]
@@ -27,8 +29,10 @@ interface FileUploadConflictDialogProps {
 
 interface FileConflict {
   file: File
+  type: 'name' | 'size'
   suggestedName: string
   finalName: string
+  reason?: string
 }
 
 export function FileUploadConflictDialog({
@@ -120,39 +124,65 @@ export function FileUploadConflictDialog({
           .filter((node) => node.parentId === targetParentId && node.type === 'file')
           .map((node) => node.name)
 
-        const conflictingFiles = files.filter((file) => existingFiles.includes(file.name))
+        
+        // Check for both name conflicts and size violations
+        const nameConflicts = files.filter((file) => existingFiles.includes(file.name))
+        const sizeViolations = files.filter((file) => file.size > MAX_FILE_SIZE)
+        
+        // Combine all conflicts
+        const allConflicts: FileConflict[] = []
+        
+        // Add name conflicts
+        nameConflicts.forEach((file) => {
+          const nameParts = file.name.split('.')
+          const extension = nameParts.length > 1 ? `.${nameParts.pop()}` : ''
+          const baseName = nameParts.join('.')
+
+          // Find the next available number
+          let counter = 1
+          let suggestedName = `${baseName} (${counter})${extension}`
+
+          while (existingFiles.includes(suggestedName)) {
+            counter++
+            suggestedName = `${baseName} (${counter})${extension}`
+          }
+
+          allConflicts.push({
+            file,
+            type: 'name',
+            suggestedName,
+            finalName: suggestedName,
+          })
+        })
+        
+        // Add size violations
+        sizeViolations.forEach((file) => {
+          // Don't duplicate if file already has name conflict
+          if (!nameConflicts.includes(file)) {
+            allConflicts.push({
+              file,
+              type: 'size',
+              suggestedName: file.name,
+              finalName: file.name,
+              reason: `File size (${formatFileSize(file.size)}) exceeds 5MB limit`
+            })
+          }
+        })
 
         // Conflict analysis completed
 
-        if (conflictingFiles.length > 0) {
-          const fileConflicts: FileConflict[] = conflictingFiles.map((file) => {
-            const nameParts = file.name.split('.')
-            const extension = nameParts.length > 1 ? `.${nameParts.pop()}` : ''
-            const baseName = nameParts.join('.')
-
-            // Find the next available number
-            let counter = 1
-            let suggestedName = `${baseName} (${counter})${extension}`
-
-            while (existingFiles.includes(suggestedName)) {
-              counter++
-              suggestedName = `${baseName} (${counter})${extension}`
-            }
-
-            return {
-              file,
-              suggestedName,
-              finalName: suggestedName,
-            }
-          })
+        if (allConflicts.length > 0) {
+          const fileConflicts = allConflicts
 
           setConflicts(fileConflicts)
           setCurrentIndex(0)
           setFileName(fileConflicts[0].suggestedName)
           setOpen(true)
 
+          // Filter out files that have any type of conflict
+          const conflictingFiles = allConflicts.map(c => c.file)
           const nonConflictingFiles = files.filter(
-            (file) => !conflictingFiles.includes(file),
+            (file) => !conflictingFiles.includes(file) && file.size <= MAX_FILE_SIZE,
           )
           if (nonConflictingFiles.length > 0) {
             setUploadStatus('uploading')
@@ -172,12 +202,22 @@ export function FileUploadConflictDialog({
           return
         }
 
-        // No conflicts detected, upload all files
+        // No conflicts detected, check file sizes and upload valid files
+        const validFiles = files.filter((file) => file.size <= MAX_FILE_SIZE)
+        
+        if (validFiles.length === 0) {
+          setUploadStatus('error')
+          setError('All files exceed the 5MB size limit')
+          onProgressUpdate?.(0, 'error')
+          setOpen(true)
+          return
+        }
+        
         setUploadStatus('uploading')
         setUploadProgress(20)
 
-        // Simulate upload progress for all files
-        const totalFiles = files.length
+        // Simulate upload progress for valid files
+        const totalFiles = validFiles.length
         const progressPerFile = 75 / totalFiles // Leave 20% for prep, 5% for completion
 
         const uploadInterval = simulateProgress(
@@ -188,7 +228,7 @@ export function FileUploadConflictDialog({
         )
 
         const apiParentId = targetParentId === 'root' ? null : targetParentId
-        await uploadFiles(files, apiParentId || undefined)
+        await uploadFiles(validFiles, apiParentId || undefined)
 
         clearInterval(uploadInterval)
         setUploadProgress(100)
@@ -203,8 +243,12 @@ export function FileUploadConflictDialog({
         // Don't reset uploadExecutedRef here - let the parent component state change handle it
       } catch (error) {
         console.error('Upload error:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Upload failed'
         setUploadStatus('error')
-        setError(error instanceof Error ? error.message : 'Upload failed')
+        setError(errorMessage)
+        toast('Upload failed', {
+          description: errorMessage
+        })
         onProgressUpdate?.(0, 'error')
         setOpen(true)
       } finally {
@@ -219,6 +263,14 @@ export function FileUploadConflictDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const currentConflict = conflicts[currentIndex]
+    
+    // Size conflicts can only be skipped, not resolved
+    if (currentConflict.type === 'size') {
+      handleSkip()
+      return
+    }
 
     const trimmedName = fileName.trim()
     if (!trimmedName) return
@@ -263,7 +315,11 @@ export function FileUploadConflictDialog({
       const targetParentId = parentId || currentFolderId
 
       const filesToUpload = resolvedConflicts
-        .filter((conflict) => !skippedFiles.has(conflict.file))
+        .filter((conflict) => 
+          !skippedFiles.has(conflict.file) && 
+          conflict.type === 'name' && // Only upload name conflicts that were resolved
+          conflict.file.size <= MAX_FILE_SIZE // Double-check size limit
+        )
         .map(
           (conflict) =>
             new File([conflict.file], conflict.finalName, {
@@ -278,7 +334,11 @@ export function FileUploadConflictDialog({
       }
     } catch (error) {
       console.error('Error uploading resolved conflicts:', error)
-      setError(error instanceof Error ? error.message : 'Upload failed')
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed'
+      setError(errorMessage)
+      toast('Upload failed', {
+        description: errorMessage
+      })
       setOpen(true)
       return
     }
@@ -330,44 +390,63 @@ export function FileUploadConflictDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
-              File Name Conflict{' '}
+              {currentConflict.type === 'size' ? 'File Size Limit Exceeded' : 'File Name Conflict'}{' '}
               {conflicts.length > 1 && ` (${currentIndex + 1} of ${conflicts.length})`}
             </DialogTitle>
             <DialogDescription>
-              A file named &quot;{currentConflict.file.name}&quot; already exists.
+              {currentConflict.type === 'size' 
+                ? currentConflict.reason
+                : `A file named "${currentConflict.file.name}" already exists.`
+              }
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-3">
-              <Input
-                value={fileName}
-                onChange={handleNameChange}
-                placeholder="Enter new file name..."
-                autoFocus
-                className={error ? 'border-destructive' : ''}
-              />
-              {error && <p className="text-sm text-destructive">{error}</p>}
+          {currentConflict.type === 'name' && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-3">
+                <Input
+                  value={fileName}
+                  onChange={handleNameChange}
+                  placeholder="Enter new file name..."
+                  autoFocus
+                  className={error ? 'border-destructive' : ''}
+                />
+                {error && <p className="text-sm text-destructive">{error}</p>}
+              </div>
             </div>
-          </div>
+          )}
+          {currentConflict.type === 'size' && (
+            <div className="grid gap-4 py-4">
+              <div className="p-4 bg-destructive/10 rounded-lg">
+                <p className="text-sm text-destructive font-medium">
+                  File too large: {currentConflict.file.name}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Size: {formatFileSize(currentConflict.file.size)} (limit: 5MB)
+                </p>
+              </div>
+            </div>
+          )}
           <DialogFooter className="gap-2">
             <Button variant="outline" type="button" onClick={handleSkip}>
               Skip This File
             </Button>
-            <Button
-              type="submit"
-              disabled={!fileName.trim() || operationLoading.uploadFiles}
-            >
-              {operationLoading.uploadFiles ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4 mr-2" />
-              )}
-              {operationLoading.uploadFiles
-                ? 'Uploading...'
-                : currentIndex < conflicts.length - 1
-                  ? 'Next'
-                  : 'Upload'}
-            </Button>
+            {currentConflict.type === 'name' && (
+              <Button
+                type="submit"
+                disabled={!fileName.trim() || operationLoading.uploadFiles}
+              >
+                {operationLoading.uploadFiles ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                {operationLoading.uploadFiles
+                  ? 'Uploading...'
+                  : currentIndex < conflicts.length - 1
+                    ? 'Next'
+                    : 'Upload'}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

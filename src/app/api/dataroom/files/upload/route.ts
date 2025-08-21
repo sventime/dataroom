@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { saveFile } from '@/lib/file-storage'
+import { MAX_FILE_SIZE, formatFileSize } from '@/lib/constants'
 import { NodeType } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
@@ -45,6 +46,15 @@ export async function POST(request: NextRequest) {
     const conflicts = []
 
     for (const file of files) {
+      // Check file size limit
+      if (file.size > MAX_FILE_SIZE) {
+        conflicts.push({ 
+          name: file.name, 
+          error: `File size (${formatFileSize(file.size)}) exceeds 5MB limit` 
+        })
+        continue
+      }
+
       // Check for duplicate names
       const existingNode = await prisma.dataroomNode.findFirst({
         where: {

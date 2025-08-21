@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { DataroomApiClient, type ApiDataroom, type ApiDataroomNode } from '@/lib/api-client'
 import type { DataroomNode, Breadcrumb } from '@/types/dataroom'
+import { toast } from 'sonner'
 
 interface DataroomState {
   dataroom: ApiDataroom | null
@@ -250,8 +251,12 @@ export const useDataroomStore = create<DataroomStore>()(
           await get().loadDataroomById(dataroom.id)
           return { conflicts: result.conflicts }
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to upload files'
           set({ 
-            error: error instanceof Error ? error.message : 'Failed to upload files'
+            error: errorMessage
+          })
+          toast('Upload failed', {
+            description: errorMessage
           })
           throw error
         } finally {

@@ -255,24 +255,24 @@ export function FileTable({ className }: FileTableProps) {
     if (nodes.length > 0) {
       const selectedParam = searchParams.get('selected')
       const currentSelection = selectedNodeIds
-      
+
       console.log('FileTable URL sync check:', {
         selectedParam,
         currentSelection,
-        nodes: nodes.length
+        nodes: nodes.length,
       })
-      
+
       if (selectedParam) {
         const decodedParam = decodeURIComponent(selectedParam)
         const selectedIds = decodedParam.split(',').filter((id) => id.trim())
         const nodeIds = nodes.map((node) => node.id)
         const validSelectedIds = selectedIds.filter((id) => nodeIds.includes(id))
-        
+
         // Check if selection has changed
-        const selectionChanged = 
+        const selectionChanged =
           validSelectedIds.length !== currentSelection.length ||
           !validSelectedIds.every((id) => currentSelection.includes(id))
-        
+
         console.log('FileTable URL sync:', {
           selectedParam,
           decodedParam,
@@ -281,9 +281,9 @@ export function FileTable({ className }: FileTableProps) {
           validSelectedIds,
           currentSelection,
           selectionChanged,
-          willUpdate: selectionChanged && validSelectedIds.length > 0
+          willUpdate: selectionChanged && validSelectedIds.length > 0,
         })
-        
+
         if (selectionChanged && validSelectedIds.length > 0) {
           selectMultiple(validSelectedIds)
         } else if (selectionChanged && validSelectedIds.length === 0) {
@@ -302,13 +302,13 @@ export function FileTable({ className }: FileTableProps) {
       currentFolderNodeIds.includes(id),
     )
     setAllSelected(nodes.length > 0 && selectedInCurrentFolder.length === nodes.length)
-    
+
     console.log('FileTable selection state:', {
       nodes: nodes.length,
       currentFolderNodeIds,
       selectedNodeIds,
       selectedInCurrentFolder,
-      allSelected: nodes.length > 0 && selectedInCurrentFolder.length === nodes.length
+      allSelected: nodes.length > 0 && selectedInCurrentFolder.length === nodes.length,
     })
   }, [selectedNodeIds, nodes])
 
@@ -342,10 +342,14 @@ export function FileTable({ className }: FileTableProps) {
   if (nodes.length === 0) {
     return (
       <div
-        className={`flex flex-col flex-1 h-full items-center justify-center py-12 text-muted-foreground pt-10 ${className}`}
+        className={`flex text-center flex-col flex-1 h-full items-center justify-center py-12 text-muted-foreground pt-10 ${className}`}
       >
         <Upload className="h-10 w-10 mb-4" />
-        <p className="mb-4">Drop PDF files here</p>
+        <p className="mb-4">
+          Up to 5MB
+          <br />
+          Drop PDF files here
+        </p>
       </div>
     )
   }

@@ -1,10 +1,10 @@
-// Production schema (PostgreSQL)
+// Development schema (SQLite)
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
