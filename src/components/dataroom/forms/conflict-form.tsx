@@ -42,13 +42,19 @@ export function ConflictForm({
     <form onSubmit={onSubmit}>
       <DialogHeader>
         <DialogTitle>
-          {conflict.type === 'size' ? 'File Size Limit Exceeded' : 'File Name Conflict'}
+          {conflict.type === 'type'
+            ? 'Invalid File Type'
+            : conflict.type === 'size'
+              ? 'File Size Limit Exceeded'
+              : 'File Name Conflict'}
           {totalConflicts > 1 && ` (${currentIndex + 1} of ${totalConflicts})`}
         </DialogTitle>
         <DialogDescription>
-          {conflict.type === 'size'
+          {conflict.type === 'type'
             ? conflict.reason
-            : `A file named "${conflict.file.name}" already exists.`}
+            : conflict.type === 'size'
+              ? conflict.reason
+              : `A file named "${conflict.file.name}" already exists.`}
         </DialogDescription>
       </DialogHeader>
 
@@ -67,15 +73,28 @@ export function ConflictForm({
         </div>
       )}
 
-      {conflict.type === 'size' && (
+      {(conflict.type === 'size' || conflict.type === 'type') && (
         <div className="grid gap-4 py-4">
           <div className="p-4 bg-destructive/10 rounded-lg">
-            <p className="text-sm text-destructive font-medium">
-              File too large: {conflict.file.name}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Size: {formatFileSize(conflict.file.size)} (limit: 5MB)
-            </p>
+            {conflict.type === 'size' ? (
+              <>
+                <p className="text-sm text-destructive font-medium">
+                  File too large: {conflict.file.name}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Size: {formatFileSize(conflict.file.size)} (limit: 5MB)
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-destructive font-medium">
+                  Invalid file type: {conflict.file.name}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Only PDF files are allowed.
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}

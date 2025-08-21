@@ -34,20 +34,32 @@ export function FileUploadConflictDialog({
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState('')
   const [skippedFiles, setSkippedFiles] = useState<Set<File>>(new Set())
-  const [processedBatch, setProcessedBatch] = useState<string | null>(null)
+  const [processedBatches, setProcessedBatches] = useState<Set<string>>(new Set())
   const { uploadFiles, nodes, currentFolderId, operationLoading } = useDataroomStore()
 
-  // Generate unique batch ID for this file set
+  // Generate unique batch ID for this file set - include timestamp to allow re-uploads
   const batchId = files.length > 0 
-    ? `${files.length}-${files.map(f => `${f.name}-${f.size}`).join('|')}`
+    ? `${files.length}-${files.map(f => `${f.name}-${f.size}-${f.lastModified}`).join('|')}`
     : null
 
+  // Reset state when dialog closes
   useEffect(() => {
-    if (!externalOpen || !batchId || processedBatch === batchId) return
+    if (!externalOpen) {
+      setOpen(false)
+      setConflicts([])
+      setCurrentIndex(0)
+      setFileName('')
+      setError('')
+      setSkippedFiles(new Set())
+    }
+  }, [externalOpen])
+
+  useEffect(() => {
+    if (!externalOpen || !batchId || processedBatches.has(batchId)) return
 
     const handleUpload = async () => {
       try {
-        setProcessedBatch(batchId)
+        setProcessedBatches(prev => new Set([...prev, batchId]))
         onProgressUpdate?.(0, 'preparing')
         
         const targetParentId = parentId || currentFolderId
@@ -72,6 +84,9 @@ export function FileUploadConflictDialog({
             const apiParentId = targetParentId === 'root' ? null : targetParentId
             await uploadFiles(validFiles, apiParentId || undefined)
             onProgressUpdate?.(100, 'complete')
+          } else {
+            // No valid files to upload alongside conflicts
+            onProgressUpdate?.(100, 'complete')
           }
         } else {
           // No conflicts - upload all valid files
@@ -89,7 +104,15 @@ export function FileUploadConflictDialog({
           await uploadFiles(validFiles, apiParentId || undefined)
           onProgressUpdate?.(100, 'complete')
           
-          setTimeout(() => onComplete(), 800)
+          setTimeout(() => {
+            // Clear processed batch when upload completes successfully
+            setProcessedBatches(prev => {
+              const newSet = new Set(prev)
+              if (batchId) newSet.delete(batchId)
+              return newSet
+            })
+            onComplete()
+          }, 800)
         }
       } catch (error) {
         console.error('Upload error:', error)
@@ -102,13 +125,13 @@ export function FileUploadConflictDialog({
     }
 
     handleUpload()
-  }, [externalOpen, batchId, processedBatch, files, parentId, currentFolderId, nodes, uploadFiles, onProgressUpdate, onComplete])
+  }, [externalOpen, batchId, processedBatches, files, parentId, currentFolderId, nodes, uploadFiles, onProgressUpdate, onComplete])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     const currentConflict = conflicts[currentIndex]
-    if (currentConflict.type === 'size') {
+    if (currentConflict.type === 'size' || currentConflict.type === 'type') {
       handleSkip()
       return
     }
@@ -161,6 +184,12 @@ export function FileUploadConflictDialog({
         await uploadFiles(filesToUpload, apiParentId || undefined)
       }
       
+      // Clear processed batch when upload completes successfully
+      setProcessedBatches(prev => {
+        const newSet = new Set(prev)
+        if (batchId) newSet.delete(batchId)
+        return newSet
+      })
       onComplete()
     } catch (error) {
       console.error('Error uploading resolved conflicts:', error)

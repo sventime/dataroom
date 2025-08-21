@@ -302,9 +302,9 @@ export default function DataroomPathPage() {
                     ) : (
                       <>
                         <Upload className="h-10 w-10 mx-auto mb-4 text-primary" />
-                        <h2 className="mb-1 !font-sans">Release To Upload Files</h2>
+                        <h2 className="mb-1 !font-sans">Release To Upload PDFs</h2>
                         <p className="text-muted-foreground text-sm">
-                          Files will be uploaded to the current folder
+                          Only PDF files will be uploaded to the current folder
                         </p>
                       </>
                     )}

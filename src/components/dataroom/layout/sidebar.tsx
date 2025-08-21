@@ -70,12 +70,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   multiple
                   onChange={handleFileUpload}
                   className="absolute inset-0 opacity-0 cursor-pointer"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+                  accept=".pdf,application/pdf"
                 />
                 <Button variant="outline" className="w-full justify-start" size="sm">
                   <Upload className="h-4 w-4 mr-2" />
                   <div className="flex justify-between items-center flex-1">
-                    Upload Files{' '}
+                    Upload PDFs{' '}
                     <span className="text-muted-foreground text-xs tracking-widest">
                       ⌘{'.'}
                     </span>

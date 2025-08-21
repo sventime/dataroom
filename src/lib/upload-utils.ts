@@ -1,6 +1,6 @@
 import { MAX_FILE_SIZE, formatFileSize } from '@/lib/constants'
 
-export type ConflictType = 'name' | 'size'
+export type ConflictType = 'name' | 'size' | 'type'
 export type UploadStatus = 'preparing' | 'uploading' | 'complete' | 'error'
 
 export interface FileConflict {
@@ -11,14 +11,31 @@ export interface FileConflict {
   reason?: string
 }
 
+export function isPdfFile(file: File): boolean {
+  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+}
+
 export function detectFileConflicts(
   files: File[],
   existingFiles: string[]
 ): FileConflict[] {
   const allConflicts: FileConflict[] = []
 
-  // Check for size violations FIRST - these take priority
-  const sizeViolations = files.filter((file) => file.size > MAX_FILE_SIZE)
+  // Check for file type violations FIRST - highest priority
+  const typeViolations = files.filter((file) => !isPdfFile(file))
+  typeViolations.forEach((file) => {
+    allConflicts.push({
+      file,
+      type: 'type',
+      suggestedName: file.name,
+      finalName: file.name,
+      reason: `Only PDF files are allowed. "${file.name}" is not a valid PDF file.`,
+    })
+  })
+
+  // Check for size violations SECOND - only for PDF files
+  const pdfFiles = files.filter((file) => isPdfFile(file))
+  const sizeViolations = pdfFiles.filter((file) => file.size > MAX_FILE_SIZE)
   sizeViolations.forEach((file) => {
     allConflicts.push({
       file,
@@ -29,9 +46,9 @@ export function detectFileConflicts(
     })
   })
 
-  // Check for name conflicts only for files that don't have size violations
-  const filesWithoutSizeIssues = files.filter((file) => file.size <= MAX_FILE_SIZE)
-  const nameConflicts = filesWithoutSizeIssues.filter((file) => existingFiles.includes(file.name))
+  // Check for name conflicts LAST - only for valid PDF files that pass size check
+  const validFiles = pdfFiles.filter((file) => file.size <= MAX_FILE_SIZE)
+  const nameConflicts = validFiles.filter((file) => existingFiles.includes(file.name))
   nameConflicts.forEach((file) => {
     const suggestedName = generateUniqueFileName(file.name, existingFiles)
     allConflicts.push({
@@ -80,5 +97,5 @@ export function validateFileName(
 }
 
 export function getValidFiles(files: File[]): File[] {
-  return files.filter((file) => file.size <= MAX_FILE_SIZE)
+  return files.filter((file) => isPdfFile(file) && file.size <= MAX_FILE_SIZE)
 }
