@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { HarveyLoader } from '@/components/ui/harvey-loader'
 import {
   Table,
   TableBody,
@@ -24,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { HarveyLoader } from '@/components/ui/harvey-loader'
+import { useDataroomStore } from '@/store/dataroom-store'
 import {
   ChevronRight,
   Download,
@@ -37,8 +38,6 @@ import {
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { useSharedDataroomStore } from '@/store/shared-dataroom-store'
-
 
 export default function SharedDataroomPathPage() {
   const params = useParams()
@@ -53,14 +52,15 @@ export default function SharedDataroomPathPage() {
     isInitialized,
     isLoading,
     error,
+    breadcrumbs,
     loadSharedDataroom,
     navigateToFolder,
     navigateToPath,
-    getCurrentFolderNodes,
-    getBreadcrumbs,
+    getChildNodes,
+    getNodePath,
     buildPathFromFolderId,
     isDescendantOfSharedRoot,
-  } = useSharedDataroomStore()
+  } = useDataroomStore()
 
   const [animatingOut, setAnimatingOut] = useState(false)
   const [showLoader, setShowLoader] = useState(false)
@@ -93,24 +93,38 @@ export default function SharedDataroomPathPage() {
   // Navigate to initial path after data is loaded
   useEffect(() => {
     if (!isInitialized || !dataroom) return
-    
+
     if (path.length > 0) {
-      navigateToPath(path, sharedRootId)
+      navigateToPath(path)
     } else {
       navigateToFolder(sharedRootId)
     }
-  }, [isInitialized, dataroom, path.join('/'), sharedRootId, navigateToPath, navigateToFolder])
+  }, [
+    isInitialized,
+    dataroom,
+    path.join('/'),
+    sharedRootId,
+    navigateToPath,
+    navigateToFolder,
+  ])
 
   // Handle URL navigation changes (back/forward)
   useEffect(() => {
     if (!isInitialized || !dataroom) return
 
     if (path.length > 0) {
-      navigateToPath(path, sharedRootId)
+      navigateToPath(path)
     } else {
       navigateToFolder(sharedRootId)
     }
-  }, [path.join('/'), isInitialized, dataroom, sharedRootId, navigateToPath, navigateToFolder])
+  }, [
+    path.join('/'),
+    isInitialized,
+    dataroom,
+    sharedRootId,
+    navigateToPath,
+    navigateToFolder,
+  ])
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B'
@@ -120,27 +134,32 @@ export default function SharedDataroomPathPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
+  const formatDate = (date: Date | string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date
     return (
-      date.toLocaleDateString() +
+      dateObj.toLocaleDateString() +
       ' ' +
-      date.toLocaleTimeString([], {
+      dateObj.toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
       })
     )
   }
 
-
-
   const handleFolderNavigation = (folderId: string | null) => {
-    if (!isDescendantOfSharedRoot(folderId, sharedRootId) && folderId !== sharedRootId) {
+    // Handle special shared-root ID for root sharing
+    const actualFolderId = folderId === 'shared-root' ? sharedRootId : folderId
+
+    if (
+      actualFolderId &&
+      !isDescendantOfSharedRoot(actualFolderId) &&
+      actualFolderId !== sharedRootId
+    ) {
       return
     }
 
-    navigateToFolder(folderId)
-    const newPath = buildPathFromFolderId(folderId, sharedRootId)
+    navigateToFolder(actualFolderId)
+    const newPath = buildPathFromFolderId(actualFolderId)
     const newUrl =
       newPath.length > 0 ? `/share/${token}/${newPath.join('/')}` : `/share/${token}`
 
@@ -163,9 +182,15 @@ export default function SharedDataroomPathPage() {
   }
 
   const showLoading = showLoader
-  
+
   // Debug logs
-  console.log('States:', { dataroom: !!dataroom, isInitialized, isLoading, animatingOut, showLoader })
+  console.log('States:', {
+    dataroom: !!dataroom,
+    isInitialized,
+    isLoading,
+    animatingOut,
+    showLoader,
+  })
 
   if (error) {
     return (
@@ -194,147 +219,149 @@ export default function SharedDataroomPathPage() {
       {dataroom && (
         <>
           <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                Harvey: Data Room
-              </h1>
-              <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                <User className="h-4 w-4" />
-                Shared by {dataroom?.owner.name || dataroom?.owner.email}
-              </p>
-            </div>
-            <Badge variant="secondary" className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              Read Only
-            </Badge>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6">
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            {getBreadcrumbs().map((crumb, index) => (
-              <div key={crumb.id || 'shared-root'} className="flex items-center">
-                {index > 0 && <BreadcrumbSeparator />}
-                <BreadcrumbItem>
-                  {index === getBreadcrumbs().length - 1 ? (
-                    <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        handleFolderNavigation(crumb.id)
-                      }}
-                    >
-                      {crumb.name}
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
+            <div className="container mx-auto px-4 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold flex items-center gap-2">
+                    Harvey: Data Room
+                  </h1>
+                  <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                    <User className="h-4 w-4" />
+                    Shared by {dataroom?.owner.name || dataroom?.owner.email}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  Read Only
+                </Badge>
               </div>
-            ))}
-          </BreadcrumbList>
-        </Breadcrumb>
+            </div>
+          </header>
 
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Name</TableHead>
-                <TableHead>Size</TableHead>
-                <TableHead>Modified</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {getCurrentFolderNodes().length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="text-center py-8 text-muted-foreground"
-                  >
-                    This folder is empty
-                  </TableCell>
-                </TableRow>
-              ) : (
-                getCurrentFolderNodes().map((node) => (
-                  <TableRow
-                    key={node.id}
-                    className="cursor-pointer hover:bg-accent/50"
-                    onDoubleClick={() => {
-                      if (node.type === 'FOLDER') {
-                        handleFolderNavigation(node.id)
-                      } else {
-                        handlePreview(node.id)
-                      }
-                    }}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        {node.type === 'FOLDER' ? (
-                          <Folder className="h-5 w-5 flex-shrink-0" />
-                        ) : (
-                          <File className="h-5 w-5 text-gray-500 flex-shrink-0" />
-                        )}
-                        <span className="truncate font-medium">{node.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {node.type === 'FILE' && node.size
-                        ? formatFileSize(node.size)
-                        : '-'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(node.updatedAt)}
-                    </TableCell>
-                    <TableCell className="w-12">
-                      {node.type === 'FILE' ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+          <main className="container mx-auto px-4 py-6">
+            <Breadcrumb className="mb-6">
+              <BreadcrumbList>
+                {breadcrumbs.map((crumb, index) => (
+                  <div key={crumb.id || 'shared-root'} className="flex items-center">
+                    {index > 0 && <BreadcrumbSeparator />}
+                    <BreadcrumbItem>
+                      {index === breadcrumbs.length - 1 ? (
+                        <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            handleFolderNavigation(crumb.id)
+                          }}
+                        >
+                          {crumb.name}
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </div>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+
+            <div className="border rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Name</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead>Modified</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {getChildNodes(currentFolderId).length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        This folder is empty
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    getChildNodes(currentFolderId).map((node) => (
+                      <TableRow
+                        key={node.id}
+                        className=" hover:bg-accent/50"
+                        onDoubleClick={() => {
+                          if (node.type === 'folder') {
+                            handleFolderNavigation(node.id)
+                          } else {
+                            handlePreview(node.id)
+                          }
+                        }}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {node.type === 'folder' ? (
+                              <Folder className="h-5 w-5 flex-shrink-0" />
+                            ) : (
+                              <File className="h-5 w-5 text-gray-500 flex-shrink-0" />
+                            )}
+                            <span className="truncate font-medium">{node.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {node.type === 'file' && node.size
+                            ? formatFileSize(node.size)
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(node.updatedAt)}
+                        </TableCell>
+                        <TableCell className="w-12">
+                          {node.type === 'file' ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handlePreview(node.id)}>
+                                  <ExternalLink className="h-4 w-4 mr-2" />
+                                  Preview
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDownload(node.id, node.name)}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleFolderNavigation(node.id)
+                              }}
                             >
-                              <MoreHorizontal className="h-4 w-4" />
+                              <ChevronRight className="h-4 w-4" />
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handlePreview(node.id)}>
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Preview
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDownload(node.id, node.name)}>
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleFolderNavigation(node.id)
-                          }}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </main>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </main>
         </>
       )}
     </div>

@@ -120,7 +120,7 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
     // Then update store state (this will sync with the URL)
     const store = useDataroomStore.getState()
     const { navigateToFolder: storeNavigateToFolder } = store
-    storeNavigateToFolder(folderId, false)
+    storeNavigateToFolder(folderId)
 
     if (!isOpen) {
       toggleFolderExpansion(folderId)

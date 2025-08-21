@@ -9,7 +9,6 @@ interface DataroomState {
   nodes: Record<string, DataroomNode>
   currentFolderId: string | null
   breadcrumbs: Breadcrumb[]
-  selectedNodeIds: string[]
   expandedFolders: Record<string, boolean> // Track which folders are expanded
   isLoading: boolean
   error: string | null
@@ -22,14 +21,20 @@ interface DataroomState {
     bulkDelete: boolean
     uploadFiles: boolean
   }
+  // Shared dataroom mode
+  isSharedMode: boolean
+  shareToken: string | null
+  sharedRootId: string | null
+  isInitialized: boolean
 }
 
 interface DataroomActions {
   loadDataroom: () => Promise<void>
   loadDataroomById: (dataroomId: string) => Promise<void>
+  loadSharedDataroom: (token: string) => Promise<void>
   processDataroomData: (dataroom: ApiDataroom) => void
   
-  navigateToFolder: (folderId: string, preserveSelection?: boolean) => void
+  navigateToFolder: (folderId: string | null) => void
   navigateToPath: (pathSegments: string[]) => void
   
   createFolder: (name: string, parentId?: string) => Promise<{ conflicts?: unknown[] }>
@@ -38,9 +43,6 @@ interface DataroomActions {
   deleteNode: (nodeId: string) => Promise<void>
   deleteBulk: (nodeIds: string[]) => Promise<void>
   
-  selectNode: (nodeId: string) => void
-  selectMultiple: (nodeIds: string[]) => void
-  clearSelection: () => void
   
   setSearchQuery: (query: string) => void
   
@@ -52,6 +54,8 @@ interface DataroomActions {
   getChildNodes: (parentId: string | null) => DataroomNode[]
   getNodePath: (nodeId: string) => Breadcrumb[]
   getFolderByPath: (pathSegments: string[]) => DataroomNode | null
+  isDescendantOfSharedRoot: (folderId: string | null) => boolean
+  buildPathFromFolderId: (folderId: string | null) => string[]
   reset: () => void
 }
 
@@ -74,7 +78,6 @@ const initialState: DataroomState = {
   nodes: {},
   currentFolderId: null,
   breadcrumbs: [],
-  selectedNodeIds: [],
   expandedFolders: { root: true },
   isLoading: false,
   error: null,
@@ -86,7 +89,11 @@ const initialState: DataroomState = {
     deleteNode: null,
     bulkDelete: false,
     uploadFiles: false,
-  }
+  },
+  isSharedMode: false,
+  shareToken: null,
+  sharedRootId: null,
+  isInitialized: false,
 }
 
 export const useDataroomStore = create<DataroomStore>()(
@@ -108,7 +115,7 @@ export const useDataroomStore = create<DataroomStore>()(
       },
 
       loadDataroomById: async (dataroomId: string) => {
-        set({ isLoading: true, error: null })
+        set({ isLoading: true, error: null, isSharedMode: false })
         try {
           const dataroom = await DataroomApiClient.getDataroomById(dataroomId)
           get().processDataroomData(dataroom)
@@ -116,6 +123,74 @@ export const useDataroomStore = create<DataroomStore>()(
           set({ 
             error: error instanceof Error ? error.message : 'Failed to load dataroom',
             isLoading: false 
+          })
+        }
+      },
+
+      loadSharedDataroom: async (token: string) => {
+        set({ isLoading: true, error: null, isSharedMode: true, shareToken: token })
+        
+        try {
+          const response = await fetch(`/api/share/${token}`)
+          if (!response.ok) {
+            throw new Error('Failed to fetch dataroom')
+          }
+          const data = await response.json()
+
+          const sharedRootId = data.sharedFolderId || null
+          
+          // Add 1 second delay to show loading screen
+          await new Promise(resolve => setTimeout(resolve, 1000))
+
+          // Process the shared dataroom data
+          const nodes: Record<string, DataroomNode> = {}
+          
+          // Convert shared dataroom nodes to our internal format
+          data.dataroom.nodes.forEach((apiNode: any) => {
+            const node = {
+              id: apiNode.id,
+              name: apiNode.name,
+              type: apiNode.type.toLowerCase() as 'folder' | 'file',
+              parentId: apiNode.parentId,
+              children: [],
+              size: apiNode.size || 0,
+              createdAt: new Date(apiNode.createdAt),
+              updatedAt: new Date(apiNode.updatedAt),
+              mimeType: apiNode.mimeType || 'application/octet-stream'
+            }
+            nodes[apiNode.id] = node
+          })
+
+          // Populate children arrays for folders
+          Object.values(nodes).forEach(node => {
+            if (node.type === 'folder') {
+              node.children = Object.values(nodes)
+                .filter(child => child.parentId === node.id)
+                .map(child => child.id)
+            }
+          })
+
+          // Set the shared dataroom data
+          set({
+            dataroom: data.dataroom,
+            nodes,
+            sharedRootId,
+            currentFolderId: sharedRootId,
+            isLoading: false,
+            isInitialized: true
+          })
+
+          // Calculate breadcrumbs for shared root
+          const breadcrumbs = sharedRootId && nodes[sharedRootId] 
+            ? [{ id: sharedRootId, name: nodes[sharedRootId].name, path: '/' }]
+            : [{ id: 'shared-root', name: `Data Room (${data.dataroom.owner?.email || data.dataroom.owner?.name || 'Unknown'})`, path: '/' }]
+          
+          set({ breadcrumbs })
+        } catch (error) {
+          set({
+            error: 'This share link is invalid or has expired.',
+            isLoading: false,
+            isInitialized: true
           })
         }
       },
@@ -178,34 +253,54 @@ export const useDataroomStore = create<DataroomStore>()(
       },
 
       // Navigation
-      navigateToFolder: (folderId: string, preserveSelection = false) => {
-        const { nodes, selectedNodeIds } = get()
-        const folder = nodes[folderId]
+      navigateToFolder: (folderId: string | null) => {
+        const { nodes, isSharedMode, sharedRootId } = get()
         
-        if (!folder || folder.type !== 'folder') {
-          return set({ error: 'Folder not found' })
+        // Handle shared mode with null folderId (root sharing)
+        if (isSharedMode && folderId === null && sharedRootId === null) {
+          set({
+            currentFolderId: null,
+            error: null
+          })
+          return
         }
+        
+        // For regular mode or shared mode with actual folder
+        if (folderId) {
+          const folder = nodes[folderId]
+          
+          if (!folder || folder.type !== 'folder') {
+            return set({ error: 'Folder not found' })
+          }
 
-        const breadcrumbs = get().getNodePath(folderId)
-        
-        // Expand the path to this folder in the sidebar
-        get().expandPathToFolder(folderId)
-        
-        set({
-          currentFolderId: folderId,
-          breadcrumbs,
-          selectedNodeIds: preserveSelection ? selectedNodeIds : [],
-          error: null
-        })
+          const breadcrumbs = get().getNodePath(folderId)
+          
+          // Expand the path to this folder in the sidebar (only for regular mode)
+          if (!isSharedMode) {
+            get().expandPathToFolder(folderId)
+          }
+          
+          set({
+            currentFolderId: folderId,
+            breadcrumbs,
+            error: null
+          })
+        }
       },
 
       navigateToPath: (pathSegments: string[]) => {
+        const { isSharedMode, sharedRootId } = get()
         const folder = get().getFolderByPath(pathSegments)
+        
         if (folder) {
           get().navigateToFolder(folder.id)
         } else {
-          // Path not found, navigate to root
-          get().navigateToFolder('root')
+          // Path not found, navigate to appropriate root
+          if (isSharedMode) {
+            get().navigateToFolder(sharedRootId) // null for root sharing
+          } else {
+            get().navigateToFolder('root')
+          }
         }
       },
 
@@ -327,23 +422,6 @@ export const useDataroomStore = create<DataroomStore>()(
         }
       },
 
-      // Selection
-      selectNode: (nodeId: string) => {
-        const { selectedNodeIds } = get()
-        const newSelection = selectedNodeIds.includes(nodeId)
-          ? selectedNodeIds.filter(id => id !== nodeId)
-          : [...selectedNodeIds, nodeId]
-        
-        set({ selectedNodeIds: newSelection })
-      },
-
-      selectMultiple: (nodeIds: string[]) => {
-        set({ selectedNodeIds: nodeIds })
-      },
-
-      clearSelection: () => {
-        set({ selectedNodeIds: [] })
-      },
 
       // Search
       setSearchQuery: (query: string) => {
@@ -427,10 +505,11 @@ export const useDataroomStore = create<DataroomStore>()(
       },
 
       getNodePath: (nodeId: string): Breadcrumb[] => {
-        const { nodes } = get()
+        const { nodes, isSharedMode, sharedRootId, dataroom } = get()
         const path: Breadcrumb[] = []
         let current: DataroomNode | null = nodes[nodeId] || null
 
+        // Build path up to shared root or regular root
         while (current) {
           path.unshift({
             id: current.id,
@@ -438,28 +517,60 @@ export const useDataroomStore = create<DataroomStore>()(
             path: '/' + path.map(p => p.name).join('/')
           })
 
+          // Stop at shared root if in shared mode
+          if (isSharedMode && current.id === sharedRootId) {
+            break
+          }
+
           current = current.parentId ? nodes[current.parentId] || null : null
+        }
+
+        // For shared mode, add the root breadcrumb at the beginning
+        if (isSharedMode) {
+          if (sharedRootId && nodes[sharedRootId]) {
+            // Folder sharing - shared root is already in the path
+            return path
+          } else {
+            // Root sharing - add the virtual root
+            path.unshift({
+              id: 'shared-root',
+              name: `Data Room (${dataroom?.owner?.email || dataroom?.owner?.name || 'Unknown'})`,
+              path: '/'
+            })
+          }
         }
 
         return path
       },
 
       getFolderByPath: (pathSegments: string[]): DataroomNode | null => {
-        const { nodes } = get()
+        const { nodes, isSharedMode, sharedRootId } = get()
         
-        // Start from root
-        let currentFolder = nodes['root']
-        if (!currentFolder) return null
+        let currentFolder: DataroomNode | null
+        
+        if (isSharedMode) {
+          // Start from shared root (or null for root sharing)
+          currentFolder = sharedRootId ? nodes[sharedRootId] : null
+          
+          // For root sharing, if no path segments, return null (represents root level)
+          if (pathSegments.length === 0) {
+            return currentFolder
+          }
+        } else {
+          // Regular mode - start from root
+          currentFolder = nodes['root']
+          if (!currentFolder) return null
 
-        // If no path segments, return root
-        if (pathSegments.length === 0) {
-          return currentFolder
+          // If no path segments, return root
+          if (pathSegments.length === 0) {
+            return currentFolder
+          }
         }
 
         // Navigate through each path segment
         for (const segment of pathSegments) {
           const decodedSegment = decodeURIComponent(segment)
-          const children = get().getChildNodes(currentFolder.id)
+          const children = get().getChildNodes(currentFolder?.id || null)
           const nextFolder = children.find(
             child => child.type === 'folder' && child.name === decodedSegment
           )
@@ -472,6 +583,39 @@ export const useDataroomStore = create<DataroomStore>()(
         }
 
         return currentFolder
+      },
+
+      isDescendantOfSharedRoot: (folderId: string | null) => {
+        const { nodes, sharedRootId, isSharedMode } = get()
+        if (!isSharedMode) return true
+
+        // If no shared root (root sharing), allow access to all folders
+        if (!sharedRootId) return true
+
+        if (folderId === sharedRootId) return true
+        if (folderId === null) return sharedRootId === null
+
+        let current = nodes[folderId || '']
+        while (current) {
+          if (current.id === sharedRootId) return true
+          current = current.parentId ? nodes[current.parentId] || null : null
+        }
+        return false
+      },
+
+      buildPathFromFolderId: (folderId: string | null) => {
+        const { nodes, sharedRootId, isSharedMode } = get()
+        if (!isSharedMode || folderId === sharedRootId) return []
+
+        const pathSegments: string[] = []
+        let current = nodes[folderId || '']
+
+        while (current && current.id !== sharedRootId) {
+          pathSegments.unshift(encodeURIComponent(current.name))
+          current = current.parentId ? nodes[current.parentId] || null : null
+        }
+
+        return pathSegments
       },
 
       reset: () => {

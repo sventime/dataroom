@@ -14,14 +14,12 @@ import { useLoader } from '@/contexts/loader-context'
 import { useDataroomStore } from '@/store/dataroom-store'
 import { Upload } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 export default function DataroomPathPage() {
   const { status } = useSession()
   const params = useParams()
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const dataroomId = params.dataroomId as string
   const path = (params.path as string[]) || []
   const { hideLoader, showLoader, setMessage } = useLoader()
@@ -35,7 +33,6 @@ export default function DataroomPathPage() {
     error,
     dataroom,
     navigateToPath,
-    getChildNodes,
   } = useDataroomStore()
 
   const [isDragOver, setIsDragOver] = useState(false)
@@ -47,7 +44,6 @@ export default function DataroomPathPage() {
   const [uploadStatus, setUploadStatus] = useState<
     'preparing' | 'uploading' | 'complete' | 'error'
   >('preparing')
-  const [isNavigatingFromUrl, setIsNavigatingFromUrl] = useState(false)
   const [hasShownLoader, setHasShownLoader] = useState(false)
 
   // Show loader immediately on component mount - only on first load
@@ -76,21 +72,15 @@ export default function DataroomPathPage() {
 
   useEffect(() => {
     if (dataroom && !isInitialized) {
-      setIsNavigatingFromUrl(true)
       if (path.length > 0) {
         navigateToPath(path)
       } else {
         navigateToFolder('root')
       }
       setIsInitialized(true)
-      setTimeout(() => setIsNavigatingFromUrl(false), 100)
     }
   }, [dataroom, isInitialized, path, navigateToPath, navigateToFolder])
 
-  // Get nodes to check if they're loaded
-  const currentNodes = currentFolderId ? getChildNodes(currentFolderId) : []
-
-  // No more URL sync needed - FileTable now derives state from URL directly
 
   // Handle animate out when loading completes
   useEffect(() => {
@@ -106,13 +96,11 @@ export default function DataroomPathPage() {
   // Handle URL changes (back/forward navigation)
   useEffect(() => {
     if (isInitialized && dataroom) {
-      setIsNavigatingFromUrl(true)
       if (path.length > 0) {
         navigateToPath(path)
       } else {
         navigateToFolder('root')
       }
-      setTimeout(() => setIsNavigatingFromUrl(false), 100)
     }
   }, [path.join('/'), isInitialized, dataroom, navigateToPath, navigateToFolder])
 
@@ -238,7 +226,9 @@ export default function DataroomPathPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-muted-foreground">You don&apos;t have access to this dataroom.</p>
+          <p className="text-muted-foreground">
+            You don&apos;t have access to this dataroom.
+          </p>
         </div>
       </div>
     )
@@ -252,10 +242,12 @@ export default function DataroomPathPage() {
   return (
     <div className="relative">
       <SidebarProvider
-        style={{
-          '--sidebar-width': '20rem',
-          '--sidebar-width-mobile': '20rem',
-        } as React.CSSProperties}
+        style={
+          {
+            '--sidebar-width': '20rem',
+            '--sidebar-width-mobile': '20rem',
+          } as React.CSSProperties
+        }
       >
         <AppSidebar />
         <SidebarInset>

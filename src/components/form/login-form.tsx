@@ -10,8 +10,8 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import EmailIcon from '@/icons/email-icon'
 import { cn } from '@/lib/utils'
+import { Mail } from 'lucide-react'
 import { signIn } from 'next-auth/react'
 import { useState } from 'react'
 
@@ -101,9 +101,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
                   <div
                     className={`text-center text-sm justify-center flex gap-2 ${message.includes('Check your email') ? 'text-white' : 'text-red-300'}`}
                   >
-                    {message.includes('Check your email') && (
-                      <EmailIcon className="h-5 w-5" />
-                    )}{' '}
+                    {message.includes('Check your email') && <Mail className="h-5 w-5" />}{' '}
                     {message}
                   </div>
                 )}

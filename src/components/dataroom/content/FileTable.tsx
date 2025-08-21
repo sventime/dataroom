@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useDialog } from '@/contexts/DialogContext'
+import { MAX_FILE_SIZE_MB } from '@/lib/constants'
 import { useDataroomStore } from '@/store/dataroom-store'
 import type { DataroomNode } from '@/types/dataroom'
 import {
@@ -46,13 +47,28 @@ interface FileRowProps {
 }
 
 function FileRow({ node, isSelected, onSelect }: FileRowProps) {
-  const { navigateToFolder, dataroom } = useDataroomStore()
+  const { navigateToFolder, dataroom, getNodePath } = useDataroomStore()
   const { openDialog } = useDialog()
+  const router = useRouter()
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const handleDoubleClick = () => {
     if (node.type === 'folder') {
       navigateToFolder(node.id)
+      
+      // Update the URL route
+      if (dataroom) {
+        const breadcrumbs = getNodePath(node.id)
+        const pathSegments = breadcrumbs
+          .slice(1) // Skip root
+          .map((crumb) => encodeURIComponent(crumb.name))
+
+        const basePath = pathSegments.length > 0
+          ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
+          : `/dataroom/${dataroom.id}`
+
+        router.push(basePath)
+      }
     } else if (node.type === 'file') {
       const previewUrl = `/api/files/${node.id}/preview`
       window.open(previewUrl, '_blank')
@@ -129,7 +145,7 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
 
   return (
     <TableRow
-      className={`cursor-pointer hover:bg-accent/50 ${isSelected ? 'bg-accent/50' : ''}`}
+      className={`hover:bg-accent/50 ${isSelected ? 'bg-accent/50' : ''}`}
       onDoubleClick={handleDoubleClick}
     >
       <TableCell className="w-12">
@@ -219,29 +235,24 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
 }
 
 export function FileTable({ className }: FileTableProps) {
-  const {
-    getChildNodes,
-    currentFolderId,
-    dataroom,
-    breadcrumbs,
-  } = useDataroomStore()
+  const { getChildNodes, currentFolderId, dataroom, breadcrumbs } = useDataroomStore()
   const { openDialog } = useDialog()
   const router = useRouter()
   const searchParams = useSearchParams()
 
   const nodes = getChildNodes(currentFolderId)
-  
+
   // Derive selected state from URL - this is the single source of truth
   const getSelectedNodeIds = () => {
     const selectedParam = searchParams.get('selected')
     if (!selectedParam) return []
-    
+
     const decodedParam = decodeURIComponent(selectedParam)
     const selectedIds = decodedParam.split(',').filter((id) => id.trim())
     const nodeIds = nodes.map((node) => node.id)
     return selectedIds.filter((id) => nodeIds.includes(id))
   }
-  
+
   const selectedNodeIds = getSelectedNodeIds()
   const [allSelected, setAllSelected] = useState(false)
 
@@ -270,7 +281,6 @@ export function FileTable({ className }: FileTableProps) {
   }
 
   // No more URL sync needed - we derive state from URL directly
-
 
   useEffect(() => {
     const currentFolderNodeIds = nodes.map((node) => node.id)
@@ -318,7 +328,7 @@ export function FileTable({ className }: FileTableProps) {
       >
         <Upload className="h-10 w-10 mb-4" />
         <p className="mb-4">
-          Up to 5MB
+          Up to {MAX_FILE_SIZE_MB}MB
           <br />
           Drop PDF files here
         </p>
