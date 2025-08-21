@@ -222,10 +222,6 @@ export function FileTable({ className }: FileTableProps) {
   const {
     getChildNodes,
     currentFolderId,
-    selectedNodeIds,
-    selectNode,
-    selectMultiple,
-    clearSelection,
     dataroom,
     breadcrumbs,
   } = useDataroomStore()
@@ -234,6 +230,19 @@ export function FileTable({ className }: FileTableProps) {
   const searchParams = useSearchParams()
 
   const nodes = getChildNodes(currentFolderId)
+  
+  // Derive selected state from URL - this is the single source of truth
+  const getSelectedNodeIds = () => {
+    const selectedParam = searchParams.get('selected')
+    if (!selectedParam) return []
+    
+    const decodedParam = decodeURIComponent(selectedParam)
+    const selectedIds = decodedParam.split(',').filter((id) => id.trim())
+    const nodeIds = nodes.map((node) => node.id)
+    return selectedIds.filter((id) => nodeIds.includes(id))
+  }
+  
+  const selectedNodeIds = getSelectedNodeIds()
   const [allSelected, setAllSelected] = useState(false)
 
   const updateURLWithSelections = (newSelectedIds: string[]) => {
@@ -260,51 +269,8 @@ export function FileTable({ className }: FileTableProps) {
     router.replace(newPath)
   }
 
-  // Sync URL selections whenever URL or nodes change
-  useEffect(() => {
-    if (nodes.length > 0) {
-      const selectedParam = searchParams.get('selected')
-      const currentSelection = selectedNodeIds
+  // No more URL sync needed - we derive state from URL directly
 
-      console.log('FileTable URL sync check:', {
-        selectedParam,
-        currentSelection,
-        nodes: nodes.length,
-      })
-
-      if (selectedParam) {
-        const decodedParam = decodeURIComponent(selectedParam)
-        const selectedIds = decodedParam.split(',').filter((id) => id.trim())
-        const nodeIds = nodes.map((node) => node.id)
-        const validSelectedIds = selectedIds.filter((id) => nodeIds.includes(id))
-
-        // Check if selection has changed
-        const selectionChanged =
-          validSelectedIds.length !== currentSelection.length ||
-          !validSelectedIds.every((id) => currentSelection.includes(id))
-
-        console.log('FileTable URL sync:', {
-          selectedParam,
-          decodedParam,
-          selectedIds,
-          nodeIds,
-          validSelectedIds,
-          currentSelection,
-          selectionChanged,
-          willUpdate: selectionChanged && validSelectedIds.length > 0,
-        })
-
-        if (selectionChanged && validSelectedIds.length > 0) {
-          selectMultiple(validSelectedIds)
-        } else if (selectionChanged && validSelectedIds.length === 0) {
-          selectMultiple([])
-        }
-      } else if (currentSelection.length > 0) {
-        console.log('FileTable clearing selection - no URL param')
-        selectMultiple([])
-      }
-    }
-  }, [nodes, searchParams, selectMultiple]) // Removed hasInitialized and selectedNodeIds to avoid conflicts
 
   useEffect(() => {
     const currentFolderNodeIds = nodes.map((node) => node.id)
@@ -325,11 +291,9 @@ export function FileTable({ className }: FileTableProps) {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       const newSelection = nodes.map((node) => node.id)
-      selectMultiple(newSelection)
       setAllSelected(true)
       updateURLWithSelections(newSelection)
     } else {
-      clearSelection()
       setAllSelected(false)
       updateURLWithSelections([])
     }
@@ -338,12 +302,10 @@ export function FileTable({ className }: FileTableProps) {
   const handleSelectNode = (nodeId: string, selected: boolean) => {
     if (selected) {
       const newSelection = [...selectedNodeIds, nodeId]
-      selectMultiple(newSelection)
       setAllSelected(newSelection.length === nodes.length)
       updateURLWithSelections(newSelection)
     } else {
       const newSelection = selectedNodeIds.filter((id) => id !== nodeId)
-      selectMultiple(newSelection)
       setAllSelected(false)
       updateURLWithSelections(newSelection)
     }
@@ -388,7 +350,6 @@ export function FileTable({ className }: FileTableProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            clearSelection()
                             setAllSelected(false)
                             updateURLWithSelections([])
                           }}

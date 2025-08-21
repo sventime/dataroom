@@ -35,7 +35,6 @@ export default function DataroomPathPage() {
     error,
     dataroom,
     navigateToPath,
-    selectMultiple,
     getChildNodes,
   } = useDataroomStore()
 
@@ -91,43 +90,7 @@ export default function DataroomPathPage() {
   // Get nodes to check if they're loaded
   const currentNodes = currentFolderId ? getChildNodes(currentFolderId) : []
 
-  useEffect(() => {
-    if (dataroom && currentFolderId && currentNodes.length > 0) {
-      const selectedParam = searchParams.get('selected')
-      const currentSelection = useDataroomStore.getState().selectedNodeIds
-
-      console.log('URL sync effect:', {
-        dataroom: !!dataroom,
-        currentFolderId,
-        nodesCount: currentNodes.length,
-        selectedParam,
-        currentSelection,
-      })
-
-      if (selectedParam) {
-        // Decode the URL-encoded parameter first
-        const decodedParam = decodeURIComponent(selectedParam)
-        const selectedIds = decodedParam.split(',').filter((id) => id.trim())
-        const selectionChanged =
-          selectedIds.length !== currentSelection.length ||
-          !selectedIds.every((id) => currentSelection.includes(id))
-
-        console.log('Selection check:', {
-          selectedParam,
-          decodedParam,
-          selectedIds,
-          selectionChanged,
-          will_update: selectedIds.length > 0 && selectionChanged
-        })
-
-        if (selectedIds.length > 0 && selectionChanged) {
-          selectMultiple(selectedIds)
-        }
-      } else if (currentSelection.length > 0) {
-        selectMultiple([])
-      }
-    }
-  }, [dataroom, currentFolderId, currentNodes.length, searchParams, selectMultiple, getChildNodes])
+  // No more URL sync needed - FileTable now derives state from URL directly
 
   // Handle animate out when loading completes
   useEffect(() => {
@@ -139,27 +102,6 @@ export default function DataroomPathPage() {
       return () => clearTimeout(timer)
     }
   }, [dataroom, isInitialized, isLoading, currentFolderId, hideLoader])
-
-  useEffect(() => {
-    if (!isInitialized || !dataroom || !currentFolderId) return
-
-    const pathSegments = breadcrumbs
-      .slice(1)
-      .map((crumb) => encodeURIComponent(crumb.name))
-    const expectedPath =
-      pathSegments.length > 0
-        ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
-        : `/dataroom/${dataroom.id}`
-
-    // Only update URL if we're not already navigating from a URL change
-    if (window.location.pathname !== expectedPath && !isNavigatingFromUrl) {
-      setTimeout(() => {
-        if (window.location.pathname !== expectedPath && !isNavigatingFromUrl) {
-          router.push(expectedPath + window.location.search)
-        }
-      }, 150)
-    }
-  }, [currentFolderId, isInitialized, breadcrumbs, dataroom, router, isNavigatingFromUrl])
 
   // Handle URL changes (back/forward navigation)
   useEffect(() => {

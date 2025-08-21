@@ -90,40 +90,16 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
         ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
         : `/dataroom/${dataroom.id}`
 
-    const { selectedNodeIds } = useDataroomStore.getState()
-    const searchParams = new URLSearchParams()
-    if (selectedNodeIds.length > 0) {
-      searchParams.set('selected', selectedNodeIds.join(','))
-    }
-
-    const newPath = searchParams.toString()
-      ? `${basePath}?${searchParams.toString()}`
-      : basePath
-
-    router.push(newPath)
+    // When navigating to folder, clear selections (don't preserve them)
+    router.push(basePath)
   }
 
   const handleFileClick = (fileId: string) => {
     if (!dataroom) return
 
-    const store = useDataroomStore.getState()
-    const {
-      selectMultiple,
-      navigateToFolder: storeNavigateToFolder,
-    } = store
-
     const newSelection = [fileId]
 
-    // First, select the file
-    selectMultiple(newSelection)
-    
-    // Then navigate to folder while preserving the selection
-    storeNavigateToFolder(folderId, true)
-
-    if (!isOpen) {
-      toggleFolderExpansion(folderId)
-    }
-
+    // Build URL path immediately without waiting for store navigation
     const targetBreadcrumbs = getNodePath(folderId)
     const pathSegments = targetBreadcrumbs
       .slice(1)
@@ -135,15 +111,23 @@ function FolderTreeNode({ folderId }: { folderId: string }) {
         : `/dataroom/${dataroom.id}`
 
     const searchParams = new URLSearchParams()
-    if (newSelection.length > 0) {
-      searchParams.set('selected', newSelection.join(','))
+    searchParams.set('selected', newSelection.join(','))
+
+    const newPath = `${basePath}?${searchParams.toString()}`
+
+    console.log('Navigating to file:', newPath)
+
+    // Then update store state (this will sync with the URL)
+    const store = useDataroomStore.getState()
+    const { navigateToFolder: storeNavigateToFolder } = store
+    storeNavigateToFolder(folderId, false)
+
+    if (!isOpen) {
+      toggleFolderExpansion(folderId)
     }
 
-    const newPath = searchParams.toString()
-      ? `${basePath}?${searchParams.toString()}`
-      : basePath
-
-    router.push(newPath)
+    // Update URL FIRST - this triggers immediate navigation with selection
+    router.replace(newPath)
   }
 
   return (

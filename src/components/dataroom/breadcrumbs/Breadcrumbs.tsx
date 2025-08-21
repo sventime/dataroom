@@ -97,15 +97,8 @@ export function Breadcrumbs({ className, onDeleteComplete }: BreadcrumbsProps) {
           ? `/dataroom/${dataroom.id}/${pathSegments.join('/')}`
           : `/dataroom/${dataroom.id}`
 
-      const { selectedNodeIds } = useDataroomStore.getState()
-      const searchParams = new URLSearchParams()
-      if (selectedNodeIds.length > 0) {
-        searchParams.set('selected', selectedNodeIds.join(','))
-      }
-
-      const newPath = searchParams.toString()
-        ? `${basePath}?${searchParams.toString()}`
-        : basePath
+      // When navigating via breadcrumbs, clear selections
+      const newPath = basePath
 
       router.push(newPath)
     }
