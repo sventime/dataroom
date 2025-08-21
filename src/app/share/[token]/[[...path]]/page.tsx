@@ -152,9 +152,14 @@ export default function SharedDataroomPathPage() {
     window.open(previewUrl, '_blank')
   }
 
-  const handleDownload = (fileId: string) => {
+  const handleDownload = (fileId: string, fileName: string) => {
     const downloadUrl = `/api/files/${fileId}/download?token=${token}`
-    window.open(downloadUrl)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   const showLoading = showLoader
@@ -303,7 +308,7 @@ export default function SharedDataroomPathPage() {
                               <ExternalLink className="h-4 w-4 mr-2" />
                               Preview
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDownload(node.id)}>
+                            <DropdownMenuItem onClick={() => handleDownload(node.id, node.name)}>
                               <Download className="h-4 w-4 mr-2" />
                               Download
                             </DropdownMenuItem>

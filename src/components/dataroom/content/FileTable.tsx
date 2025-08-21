@@ -64,6 +64,16 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
     window.open(previewUrl, '_blank')
   }
 
+  const handleDownload = () => {
+    const downloadUrl = `/api/files/${node.id}/download`
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = node.name
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const handleCopyShareLink = async () => {
     if (!dataroom) return
 
@@ -168,7 +178,7 @@ function FileRow({ node, isSelected, onSelect }: FileRowProps) {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Preview
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownload}>
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </DropdownMenuItem>
